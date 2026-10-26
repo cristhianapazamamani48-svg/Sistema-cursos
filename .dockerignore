@@ -1,0 +1,24 @@
+# Node modules (se instalan dentro del container)
+**/node_modules
+
+# Builds locales
+**/dist
+frontend/dist
+
+# Git
+.git
+.gitignore
+
+# Logs
+**/*.log
+npm-debug.log*
+
+# Variables de entorno locales
+backend/.env
+frontend/.env
+frontend/.env.local
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
