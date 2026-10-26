@@ -3,10 +3,13 @@
 # ============================================================
 FROM node:22-alpine AS frontend-builder
 
+# Limitar uso de memoria de Node durante el build
+ENV NODE_OPTIONS="--max-old-space-size=512"
+
 WORKDIR /app/frontend
 
 COPY frontend/package*.json ./
-RUN npm ci
+RUN npm install --frozen-lockfile --prefer-offline
 
 COPY frontend/ ./
 RUN npm run build
@@ -16,10 +19,12 @@ RUN npm run build
 # ============================================================
 FROM node:22-alpine AS backend-builder
 
+ENV NODE_OPTIONS="--max-old-space-size=512"
+
 WORKDIR /app/backend
 
 COPY backend/package*.json ./
-RUN npm ci
+RUN npm install --frozen-lockfile --prefer-offline
 
 COPY backend/ ./
 RUN npm run build
@@ -31,9 +36,9 @@ FROM node:22-alpine AS production
 
 WORKDIR /app
 
-# Copiar dependencias de produccion del backend
+# Solo instalar dependencias de produccion del backend
 COPY backend/package*.json ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev --prefer-offline
 
 # Copiar el build del backend
 COPY --from=backend-builder /app/backend/dist ./dist
