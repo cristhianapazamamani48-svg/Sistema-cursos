@@ -3,13 +3,10 @@
 # ============================================================
 FROM node:22-alpine AS frontend-builder
 
-# Limitar uso de memoria de Node durante el build
-ENV NODE_OPTIONS="--max-old-space-size=512"
-
 WORKDIR /app/frontend
 
 COPY frontend/package*.json ./
-RUN npm install --frozen-lockfile --prefer-offline
+RUN npm ci
 
 COPY frontend/ ./
 RUN npm run build
@@ -19,12 +16,10 @@ RUN npm run build
 # ============================================================
 FROM node:22-alpine AS backend-builder
 
-ENV NODE_OPTIONS="--max-old-space-size=512"
-
 WORKDIR /app/backend
 
 COPY backend/package*.json ./
-RUN npm install --frozen-lockfile --prefer-offline
+RUN npm ci
 
 COPY backend/ ./
 RUN npm run build
@@ -36,14 +31,10 @@ FROM node:22-alpine AS production
 
 WORKDIR /app
 
-# Solo instalar dependencias de produccion del backend
 COPY backend/package*.json ./
-RUN npm install --omit=dev --prefer-offline
+RUN npm ci --omit=dev
 
-# Copiar el build del backend
 COPY --from=backend-builder /app/backend/dist ./dist
-
-# Copiar el build del frontend como archivos estaticos que NestJS servira
 COPY --from=frontend-builder /app/frontend/dist ./public
 
 ENV NODE_ENV=production
