@@ -74,8 +74,11 @@ export class LessonsController {
   // 2. LECCIONES
   @Get('lessons/:id')
   @UseGuards(SessionGuard)
-  async getLesson(@Param('id', ParseIntPipe) id: number) {
-    return this.lessonsService.getLesson(id);
+  async getLesson(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: User,
+  ) {
+    return this.lessonsService.getLesson(id, user);
   }
 
   @Post('lessons')

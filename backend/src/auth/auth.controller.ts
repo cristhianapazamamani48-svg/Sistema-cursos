@@ -57,7 +57,7 @@ export class AuthController {
       });
     }
 
-    const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || req.ip;
+    const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
     const userAgent = req.headers['user-agent'];
 
     const { rawToken, user, csrfToken } = await this.authService.login(parseResult.data, {

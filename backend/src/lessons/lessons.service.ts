@@ -3,13 +3,16 @@ import {
   Inject,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { eq, and, isNull } from 'drizzle-orm';
 import { DRIZZLE_DB, DrizzleDb } from '../database/database.provider';
 import { lessons, resources } from '../database/schema/lessons.schema';
 import { videos } from '../database/schema/videos.schema';
 import { modules } from '../database/schema/courses.schema';
+import { enrollments } from '../database/schema/enrollments.schema';
 import { auditLogs } from '../database/schema/audit-logs.schema';
+import { User } from '../database/schema/users.schema';
 import {
   CreateLessonDto,
   UpdateLessonDto,
@@ -80,12 +83,12 @@ export class LessonsService {
       metadata: { reason: dto.rejectionReason },
     });
 
-    // Si se rechaza, archivar lecciones que lo usaban
+    // Si se rechaza, archivar únicamente las lecciones publicadas que lo usaban
     if (dto.status === 'rejected') {
       await this.db
         .update(lessons)
         .set({ status: 'archived', updatedAt: now })
-        .where(eq(lessons.videoId, videoId));
+        .where(and(eq(lessons.videoId, videoId), eq(lessons.status, 'published')));
     }
 
     return updatedVideo;
@@ -163,11 +166,42 @@ export class LessonsService {
 
   /**
    * Obtener lección con su video y recursos
+   * Regla de seguridad: verificar inscripción activa/completada o rol de staff, y lección published
    */
-  async getLesson(lessonId: number) {
+  async getLesson(lessonId: number, user?: User) {
     const [lesson] = await this.db.select().from(lessons).where(eq(lessons.id, lessonId)).limit(1);
-    if (!lesson) {
+    if (!lesson || lesson.deletedAt) {
       throw new NotFoundException(`Lección #${lessonId} no encontrada`);
+    }
+
+    const isStaff = user && ['admin', 'superadmin', 'docente'].includes(user.role);
+
+    if (!isStaff) {
+      if (lesson.status !== 'published') {
+        throw new ForbiddenException('La lección no está disponible o no ha sido publicada');
+      }
+
+      if (user) {
+        const [enrollment] = await this.db
+          .select({ id: enrollments.id, status: enrollments.status })
+          .from(enrollments)
+          .innerJoin(modules, eq(modules.courseId, enrollments.courseId))
+          .innerJoin(lessons, eq(lessons.moduleId, modules.id))
+          .where(
+            and(
+              eq(lessons.id, lessonId),
+              eq(enrollments.userId, user.id),
+              isNull(modules.deletedAt),
+            ),
+          )
+          .limit(1);
+
+        if (!enrollment || enrollment.status === 'cancelled') {
+          throw new ForbiddenException('No tienes una inscripción activa al curso de esta lección');
+        }
+      } else {
+        throw new ForbiddenException('Se requiere autenticación para acceder a esta lección');
+      }
     }
 
     let video = null;
