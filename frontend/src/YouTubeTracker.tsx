@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Play, Pause, CheckCircle2, RotateCcw, AlertCircle } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { CheckCircle2 } from 'lucide-react';
+import { api } from './api';
 
 declare global {
   interface Window {
@@ -29,8 +30,8 @@ export default function YouTubeTracker({
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const heartbeatIntervalRef = useRef<any>(null);
+  const progressIdRef = useRef<number | null>(null);
 
-  const [progressId, setProgressId] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [watchPct, setWatchPct] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -44,14 +45,16 @@ export default function YouTubeTracker({
 
   const initLessonProgress = async () => {
     try {
-      const res = await fetch(`/api/progress/lessons/${lessonId}`);
+      const res = await api(`/api/progress/lessons/${lessonId}`);
       if (res.ok) {
         const data = await res.json();
-        setProgressId(data.id);
+        progressIdRef.current = data.id;
         setIsCompleted(data.isCompleted);
-        const total = 12; // fallback si no hay duración
+        const total = data.totalBlocks || 0;
         const watched = (data.watchedBlocks || []).length;
-        const pct = total > 0 ? Math.min(100, Math.round((watched / total) * 100)) : 0;
+        const pct =
+          data.currentWatchPercentage ??
+          (total > 0 ? Math.min(100, Math.round((watched / total) * 100)) : 0);
         setWatchPct(pct);
       }
     } catch (err) {
@@ -145,7 +148,12 @@ export default function YouTubeTracker({
 
   // Enviar latido al backend con bloque floor(currentTime / 10)
   const sendHeartbeat = async () => {
-    if (!progressId || !playerRef.current || typeof playerRef.current.getCurrentTime !== 'function') {
+    const currentProgressId = progressIdRef.current;
+    if (
+      !currentProgressId ||
+      !playerRef.current ||
+      typeof playerRef.current.getCurrentTime !== 'function'
+    ) {
       return;
     }
 
@@ -156,11 +164,10 @@ export default function YouTubeTracker({
     setHeartbeatActive(true);
 
     try {
-      const res = await fetch('/api/progress/heartbeat', {
+      const res = await api('/api/progress/heartbeat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          progressId,
+          progressId: currentProgressId,
           blockIndex,
           currentPositionSeconds,
         }),

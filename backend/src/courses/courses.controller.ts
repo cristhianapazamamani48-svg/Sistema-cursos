@@ -42,9 +42,21 @@ export class CoursesController {
     return this.coursesService.findAll(false);
   }
 
+  @Get('my/enrolled')
+  @UseGuards(SessionGuard)
+  async findMyEnrolled(@CurrentUser() user: User) {
+    return this.coursesService.findMyEnrolledCourses(user.id);
+  }
+
   @Get(':slug')
   async findBySlug(@Param('slug') slug: string) {
     return this.coursesService.findBySlug(slug);
+  }
+
+  @Get(':slug/classroom')
+  @UseGuards(SessionGuard)
+  async getClassroom(@Param('slug') slug: string, @CurrentUser() user: User) {
+    return this.coursesService.getClassroom(slug, user.id);
   }
 
   @Post()

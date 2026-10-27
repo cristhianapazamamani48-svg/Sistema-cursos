@@ -23,7 +23,9 @@ export class ProgressService {
   async getOrCreateProgress(userId: number, lessonId: number) {
     // 1. Verificar si existe inscripción activa o completada para el curso de esta lección
     const query = `
-      SELECT e.id as enrollment_id, e.status as enrollment_status, l.id as lesson_id
+      SELECT e.id as enrollment_id, e.status as enrollment_status,
+             l.id as lesson_id, l.status as lesson_status, l.module_id,
+             m.order_index as module_order, m.course_id
       FROM lessons l
       JOIN modules m ON m.id = l.module_id AND m.deleted_at IS NULL
       JOIN courses c ON c.id = m.course_id
@@ -35,7 +37,27 @@ export class ProgressService {
       throw new ForbiddenException('El usuario no tiene una inscripción al curso de esta lección');
     }
 
-    const { enrollment_id } = res.rows[0];
+    const { enrollment_id, enrollment_status, lesson_status, module_order, course_id } = res.rows[0];
+
+    if (enrollment_status === 'cancelled') {
+      throw new ForbiddenException('La inscripción a este curso está cancelada');
+    }
+
+    if (lesson_status !== 'published') {
+      throw new ForbiddenException('La lección no está disponible o no ha sido publicada');
+    }
+
+    // Bloqueo secuencial: verificar si módulos anteriores tienen lecciones pendientes
+    const prevModulesRes = await this.pool.query(
+      `SELECT id FROM modules WHERE course_id = $1 AND deleted_at IS NULL AND order_index < $2 ORDER BY order_index ASC;`,
+      [course_id, module_order],
+    );
+    for (const mod of prevModulesRes.rows) {
+      const pending = await this.checkModulePendingLessons(Number(enrollment_id), Number(mod.id));
+      if (pending > 0) {
+        throw new ForbiddenException('Debes completar las lecciones de los módulos anteriores antes de acceder a esta lección');
+      }
+    }
 
     // 2. Buscar o crear la fila de progreso
     let [progress] = await this.db
@@ -62,18 +84,44 @@ export class ProgressService {
       progress = newProgress;
     }
 
-    return progress;
+    // 3. Enriquecer con totalBlocks y porcentaje real calculado
+    const videoRes = await this.pool.query(
+      `SELECT ceil(v.duration_seconds / 10.0)::int as total_blocks, c.min_watch_percentage
+       FROM lessons l
+       JOIN videos v ON v.id = l.video_id
+       JOIN modules m ON m.id = l.module_id
+       JOIN courses c ON c.id = m.course_id
+       WHERE l.id = $1;`,
+      [lessonId],
+    );
+    const totalBlocks = videoRes.rows[0]?.total_blocks || 0;
+    const minWatchPercentage = videoRes.rows[0]?.min_watch_percentage || 85;
+    const watchedCount = (progress.watchedBlocks || []).length;
+    const currentWatchPercentage =
+      totalBlocks > 0 ? Math.min(100, Math.round((watchedCount / totalBlocks) * 100)) : 0;
+
+    return {
+      ...progress,
+      totalBlocks,
+      watchedBlocksCount: watchedCount,
+      minWatchPercentage,
+      currentWatchPercentage,
+    };
   }
 
   /**
    * Procesa el Heartbeat recibido del reproductor (Consulta D, B y F)
    */
   async handleHeartbeat(dto: HeartbeatDto, userId: number) {
-    // Verificar propiedad del progreso
+    // Verificar propiedad del progreso y estado
     const ownerRes = await this.pool.query(
-      `SELECT e.user_id, e.id as enrollment_id, e.status as enrollment_status
+      `SELECT e.user_id, e.id as enrollment_id, e.status as enrollment_status,
+              l.id as lesson_id, l.status as lesson_status, l.module_id,
+              m.order_index as module_order, m.course_id
        FROM lesson_progress lp
        JOIN enrollments e ON e.id = lp.enrollment_id
+       JOIN lessons l ON l.id = lp.lesson_id
+       JOIN modules m ON m.id = l.module_id AND m.deleted_at IS NULL
        WHERE lp.id = $1;`,
       [dto.progressId],
     );
@@ -82,9 +130,29 @@ export class ProgressService {
       throw new NotFoundException('Registro de progreso no encontrado');
     }
 
-    const { user_id, enrollment_id, enrollment_status } = ownerRes.rows[0];
-    if (user_id !== userId) {
+    const { user_id, enrollment_id, enrollment_status, lesson_status, module_order, course_id } = ownerRes.rows[0];
+    if (Number(user_id) !== Number(userId)) {
       throw new ForbiddenException('No tienes permiso para actualizar este progreso');
+    }
+
+    if (enrollment_status === 'cancelled') {
+      throw new ForbiddenException('La inscripción al curso está cancelada');
+    }
+
+    if (lesson_status !== 'published') {
+      throw new ForbiddenException('La lección no está disponible o no ha sido publicada');
+    }
+
+    // Bloqueo secuencial en heartbeat
+    const prevModulesRes = await this.pool.query(
+      `SELECT id FROM modules WHERE course_id = $1 AND deleted_at IS NULL AND order_index < $2;`,
+      [course_id, module_order],
+    );
+    for (const mod of prevModulesRes.rows) {
+      const pending = await this.checkModulePendingLessons(Number(enrollment_id), Number(mod.id));
+      if (pending > 0) {
+        throw new ForbiddenException('Módulo anterior bloqueado con lecciones pendientes');
+      }
     }
 
     // CONSULTA D: Heartbeat atómico con rate-limiting de 5 segundos y validación de rango de bloques
@@ -204,7 +272,7 @@ export class ProgressService {
       currentWatchPercentage: currentWatchPct,
       minWatchPercentage,
       lessonCompleted: lessonCompletedNow,
-      isCompleted: currentWatchPct >= minWatchPercentage,
+      isCompleted: Boolean(resB.rows[0]?.is_completed || resB.rows[0]?.already_completed),
       courseCompleted: courseCompletedNow,
     };
   }

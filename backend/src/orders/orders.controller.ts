@@ -7,6 +7,8 @@ import {
   UseGuards,
   ParseIntPipe,
   BadRequestException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import {
@@ -95,16 +97,16 @@ export class OrdersController {
     return this.ordersService.findAllOrdersAdmin();
   }
 
-  // 6. Webhook público idempotente de pasarela de pago (Livees / QR Simple / Tigo Money / dLocal)
+  // 6. Webhook desactivado: pendiente de firma HMAC y pasarela
   @Post('webhook')
-  async handleWebhook(@Body() body: unknown) {
-    const parseResult = webhookPaymentSchema.safeParse(body);
-    if (!parseResult.success) {
-      throw new BadRequestException({
-        message: 'Payload de webhook inválido',
-        errors: parseResult.error.format(),
-      });
-    }
-    return this.ordersService.handlePaymentWebhook(parseResult.data);
+  async handleWebhook() {
+    // pendiente de firma HMAC y pasarela
+    throw new HttpException(
+      {
+        statusCode: HttpStatus.NOT_IMPLEMENTED,
+        message: 'Webhook de pagos desactivado. Pendiente de firma HMAC y configuración de pasarela.',
+      },
+      HttpStatus.NOT_IMPLEMENTED,
+    );
   }
 }

@@ -38,6 +38,24 @@ export class SessionGuard implements CanActivate {
     (request as any).user = sessionData.user;
     (request as any).session = sessionData.session;
 
+    // Validación de token CSRF para peticiones que mutan estado
+    const method = request.method.toUpperCase();
+    const mutatingMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
+    if (mutatingMethods.includes(method)) {
+      const publicAuthRoutes = ['/api/auth/login', '/api/auth/register'];
+      const path = request.originalUrl || request.url;
+      if (!publicAuthRoutes.some((route) => path.startsWith(route))) {
+        const clientToken =
+          request.headers['x-csrf-token'] ||
+          request.headers['csrf-token'] ||
+          (request.body as any)?._csrf;
+
+        if (!clientToken || clientToken !== sessionData.session.csrfToken) {
+          throw new ForbiddenException('Token CSRF inválido o ausente');
+        }
+      }
+    }
+
     return true;
   }
 }
