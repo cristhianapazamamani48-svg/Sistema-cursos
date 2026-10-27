@@ -11,6 +11,7 @@ import { LessonsModule } from './lessons/lessons.module';
 import { ProgressModule } from './progress/progress.module';
 import { OrdersModule } from './orders/orders.module';
 import { CsrfMiddleware } from './common/middleware/csrf.middleware';
+import { AppController } from './app.controller';
 
 // Ruta donde el Dockerfile copiará el build del frontend
 const FRONTEND_BUILD_PATH = join(__dirname, '..', 'public');
@@ -39,7 +40,7 @@ const staticModule = frontendExists
     ProgressModule,
     OrdersModule,
   ],
-  controllers: [],
+  controllers: [AppController],
   providers: [],
 })
 export class AppModule implements NestModule {
