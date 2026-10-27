@@ -105,19 +105,29 @@ async function main() {
       freeModId = freeModRes.rows[0].id;
     }
 
-    const freeLesson1 = await client.query(
-      `INSERT INTO lessons (module_id, video_id, title, description, order_index, status)
-       VALUES ($1, $2, '01. Interfaz y conceptos básicos de Excel', 'Navegación general y tipos de datos', 1, 'published')
-       ON CONFLICT DO NOTHING
-       RETURNING id;`,
-      [freeModId, videoId],
+    // Lecciones: usar SELECT+INSERT para evitar ON CONFLICT sin unique constraint
+    const fl1Exists = await client.query(
+      `SELECT id FROM lessons WHERE module_id = $1 AND order_index = 1 LIMIT 1`,
+      [freeModId],
     );
-    await client.query(
-      `INSERT INTO lessons (module_id, video_id, title, description, order_index, status)
-       VALUES ($1, $2, '02. Fórmulas y funciones fundamentales', 'Operaciones aritméticas y referencias relativas', 2, 'published')
-       ON CONFLICT DO NOTHING;`,
-      [freeModId, videoId],
+    if (fl1Exists.rowCount === 0) {
+      await client.query(
+        `INSERT INTO lessons (module_id, video_id, title, description, order_index, status)
+         VALUES ($1, $2, '01. Interfaz y conceptos básicos de Excel', 'Navegación general y tipos de datos', 1, 'published')`,
+        [freeModId, videoId],
+      );
+    }
+    const fl2Exists = await client.query(
+      `SELECT id FROM lessons WHERE module_id = $1 AND order_index = 2 LIMIT 1`,
+      [freeModId],
     );
+    if (fl2Exists.rowCount === 0) {
+      await client.query(
+        `INSERT INTO lessons (module_id, video_id, title, description, order_index, status)
+         VALUES ($1, $2, '02. Fórmulas y funciones fundamentales', 'Operaciones aritméticas y referencias relativas', 2, 'published')`,
+        [freeModId, videoId],
+      );
+    }
 
     // 4. Asegurar Curso de Pago
     const paidCourseRes = await client.query(
@@ -164,39 +174,51 @@ async function main() {
       paidMod2Id = paidMod2Res.rows[0].id;
     }
 
-    await client.query(
-      `INSERT INTO lessons (module_id, video_id, title, description, order_index, status)
-       VALUES ($1, $2, '01. Concepto y marco normativo de auditoría', 'Definiciones clave y NIA', 1, 'published')
-       ON CONFLICT DO NOTHING;`,
-      [paidMod1Id, videoId],
-    );
-    await client.query(
-      `INSERT INTO lessons (module_id, video_id, title, description, order_index, status)
-       VALUES ($1, $2, '02. Roles y responsabilidades del auditor', 'Ética profesional y código de conducta', 2, 'published')
-       ON CONFLICT DO NOTHING;`,
-      [paidMod1Id, videoId],
-    );
-    await client.query(
-      `INSERT INTO lessons (module_id, video_id, title, description, order_index, status)
-       VALUES ($1, $2, '03. Planificación de la auditoría interna', 'Matrices de riesgo y programas', 1, 'published')
-       ON CONFLICT DO NOTHING;`,
-      [paidMod2Id, videoId],
-    );
-    await client.query(
-      `INSERT INTO lessons (module_id, video_id, title, description, order_index, status)
-       VALUES ($1, $2, '04. Informe de auditoría y seguimiento', 'Hallazgos y recomendaciones', 2, 'published')
-       ON CONFLICT DO NOTHING;`,
-      [paidMod2Id, videoId],
-    );
+    // Lecciones del módulo 1 del curso de pago (SELECT+INSERT, no hay unique constraint)
+    const pl1Exists = await client.query(
+      `SELECT id FROM lessons WHERE module_id = $1 AND order_index = 1 LIMIT 1`, [paidMod1Id]);
+    if (pl1Exists.rowCount === 0) {
+      await client.query(
+        `INSERT INTO lessons (module_id, video_id, title, description, order_index, status)
+         VALUES ($1, $2, '01. Concepto y marco normativo de auditoría', 'Definiciones clave y NIA', 1, 'published')`,
+        [paidMod1Id, videoId]);
+    }
+    const pl2Exists = await client.query(
+      `SELECT id FROM lessons WHERE module_id = $1 AND order_index = 2 LIMIT 1`, [paidMod1Id]);
+    if (pl2Exists.rowCount === 0) {
+      await client.query(
+        `INSERT INTO lessons (module_id, video_id, title, description, order_index, status)
+         VALUES ($1, $2, '02. Roles y responsabilidades del auditor', 'Ética profesional y código de conducta', 2, 'published')`,
+        [paidMod1Id, videoId]);
+    }
+    // Lecciones del módulo 2 del curso de pago
+    const pl3Exists = await client.query(
+      `SELECT id FROM lessons WHERE module_id = $1 AND order_index = 1 LIMIT 1`, [paidMod2Id]);
+    if (pl3Exists.rowCount === 0) {
+      await client.query(
+        `INSERT INTO lessons (module_id, video_id, title, description, order_index, status)
+         VALUES ($1, $2, '03. Planificación de la auditoría interna', 'Matrices de riesgo y programas', 1, 'published')`,
+        [paidMod2Id, videoId]);
+    }
+    const pl4Exists = await client.query(
+      `SELECT id FROM lessons WHERE module_id = $1 AND order_index = 2 LIMIT 1`, [paidMod2Id]);
+    if (pl4Exists.rowCount === 0) {
+      await client.query(
+        `INSERT INTO lessons (module_id, video_id, title, description, order_index, status)
+         VALUES ($1, $2, '04. Informe de auditoría y seguimiento', 'Hallazgos y recomendaciones', 2, 'published')`,
+        [paidMod2Id, videoId]);
+    }
 
     // 5. Inscripción de estudiante en curso gratuito
+    // enrolled_by = adminId es obligatorio (constraint enrollment_origin exige
+    // que exactamente uno de order_id / enrolled_by tenga valor)
     const enrollRes = await client.query(
-      `INSERT INTO enrollments (user_id, course_id, status)
-       VALUES ($1, $2, 'active')
+      `INSERT INTO enrollments (user_id, course_id, enrolled_by, status)
+       VALUES ($1, $2, $3, 'active')
        ON CONFLICT (user_id, course_id) DO UPDATE
-       SET status = 'active'
+       SET status = 'active', enrolled_by = EXCLUDED.enrolled_by
        RETURNING id;`,
-      [estudianteId, freeCourseId],
+      [estudianteId, freeCourseId, adminId],
     );
     const enrollmentId = enrollRes.rows[0].id;
 
@@ -217,12 +239,18 @@ async function main() {
     }
 
     // 6. Orden pendiente de estudiante para el curso de pago
-    await client.query(
-      `INSERT INTO orders (user_id, course_id, amount, currency, status, receipt_url)
-       VALUES ($1, $2, 350, 'BOB', 'pending', 'comprobante-transferencia-demo.pdf')
-       ON CONFLICT DO NOTHING;`,
+    // (orders no tiene unique constraint simple: usar SELECT+INSERT condicional)
+    const existingOrder = await client.query(
+      `SELECT id FROM orders WHERE user_id = $1 AND course_id = $2 AND status = 'pending' LIMIT 1`,
       [estudianteId, paidCourseId],
     );
+    if (existingOrder.rowCount === 0) {
+      await client.query(
+        `INSERT INTO orders (user_id, course_id, amount, currency, status, receipt_url)
+         VALUES ($1, $2, 350, 'BOB', 'pending', 'comprobante-transferencia-demo.pdf')`,
+        [estudianteId, paidCourseId],
+      );
+    }
 
     console.log('[seed] Configuración completada exitosamente.');
   } finally {
