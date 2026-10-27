@@ -46,4 +46,4 @@ ENV PORT=3000
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "node scripts/migrate.js && node dist/main"]
+CMD ["sh", "-c", "node scripts/migrate.js && node scripts/seed.js && node dist/main"]
