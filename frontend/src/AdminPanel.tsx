@@ -1,21 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   CreditCard, 
   Video, 
-  CheckCircle2, 
-  XCircle, 
-  Clock, 
-  AlertCircle, 
   ExternalLink, 
   Eye, 
-  Filter, 
   Check, 
   X,
-  ShieldAlert,
-  ArrowRight,
   RefreshCw,
-  Search
 } from 'lucide-react';
+import { api } from './api';
 
 interface Order {
   id: number;
@@ -49,7 +42,7 @@ interface AdminPanelProps {
   csrfToken?: string;
 }
 
-export default function AdminPanel({ onClose, csrfToken }: AdminPanelProps) {
+export default function AdminPanel({ onClose }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<'orders' | 'videos'>('orders');
   const [orders, setOrders] = useState<Order[]>([]);
   const [videos, setVideos] = useState<VideoItem[]>([]);
@@ -72,13 +65,13 @@ export default function AdminPanel({ onClose, csrfToken }: AdminPanelProps) {
     setActionMsg(null);
     try {
       if (activeTab === 'orders') {
-        const res = await fetch('/api/orders/admin/all');
+        const res = await api('/api/orders/admin/all');
         if (res.ok) {
           const data = await res.json();
           setOrders(data);
         }
       } else {
-        const res = await fetch('/api/videos');
+        const res = await api('/api/videos');
         if (res.ok) {
           const data = await res.json();
           setVideos(data);
@@ -94,12 +87,8 @@ export default function AdminPanel({ onClose, csrfToken }: AdminPanelProps) {
   // Confirmar pago manual de una orden
   const handleConfirmOrder = async (orderId: number) => {
     try {
-      const res = await fetch(`/api/orders/${orderId}/confirm-manual`, {
+      const res = await api(`/api/orders/${orderId}/confirm-manual`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-csrf-token': csrfToken || '',
-        },
         body: JSON.stringify({
           notes: 'Pago validado por administrador desde el panel de control',
         }),
@@ -118,12 +107,8 @@ export default function AdminPanel({ onClose, csrfToken }: AdminPanelProps) {
   // Aprobar video
   const handleApproveVideo = async (videoId: number) => {
     try {
-      const res = await fetch(`/api/videos/${videoId}/review`, {
+      const res = await api(`/api/videos/${videoId}/review`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-csrf-token': csrfToken || '',
-        },
         body: JSON.stringify({
           status: 'approved',
         }),
@@ -144,12 +129,8 @@ export default function AdminPanel({ onClose, csrfToken }: AdminPanelProps) {
     if (!rejectingVideoId || !rejectionReason.trim()) return;
 
     try {
-      const res = await fetch(`/api/videos/${rejectingVideoId}/review`, {
+      const res = await api(`/api/videos/${rejectingVideoId}/review`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-csrf-token': csrfToken || '',
-        },
         body: JSON.stringify({
           status: 'rejected',
           rejectionReason: rejectionReason.trim(),

@@ -2,43 +2,26 @@ import React, { useState, useEffect } from 'react';
 import { 
   BookOpen, 
   CheckCircle2, 
-  Circle, 
   Lock, 
   Play, 
   FileText, 
-  Download, 
   ChevronDown, 
-  ChevronRight, 
   LogIn, 
-  UserPlus, 
   LogOut, 
+  Award, 
+  Clock, 
+  Layers, 
+  GraduationCap, 
+  ShieldCheck, 
   Sparkles,
-  Award,
-  Video,
-  Clock,
-  LayoutDashboard,
-  HelpCircle,
-  Menu,
-  X,
-  Mail,
-  Eye,
-  EyeOff,
-  Moon,
-  Sun,
-  ShieldCheck,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Boxes,
-  Layers,
-  GraduationCap,
-  FolderClosed,
-  Settings,
-  Flame,
-  Check
+  ShoppingBag,
+  UserCheck,
+  AlertCircle
 } from 'lucide-react';
 
 import AdminPanel from './AdminPanel';
 import YouTubeTracker from './YouTubeTracker';
+import { api, setCsrfToken as setGlobalCsrfToken } from './api';
 
 interface User {
   id: number;
@@ -47,195 +30,351 @@ interface User {
   role: string;
 }
 
-interface Lesson {
+interface CourseSummary {
   id: number;
   title: string;
-  duration: string;
-  isCompleted: boolean;
-  isLocked: boolean;
-  currentProgressPct: number;
-  videoRef: string;
+  slug: string;
+  description: string;
+  thumbnailUrl: string | null;
+  price: string;
+  currency: string;
+  status: string;
+  minWatchPercentage: number;
 }
 
-interface Module {
+interface EnrolledCourse {
+  enrollmentId: number;
+  status: 'active' | 'completed' | 'cancelled';
+  createdAt: string;
+  completedAt: string | null;
+  courseId: number;
+  title: string;
+  slug: string;
+  thumbnailUrl: string | null;
+  description: string;
+  price: string;
+  currency: string;
+  totalLessons: number;
+  completedLessons: number;
+  progressPercentage: number;
+}
+
+interface ClassroomLesson {
   id: number;
   title: string;
+  orderIndex: number;
   isLocked: boolean;
-  lessons: Lesson[];
+  isCompleted: boolean;
+  progressId: number | null;
+  currentWatchPercentage: number;
+  lastPositionSeconds: number;
+  video: {
+    id: number;
+    providerRef: string;
+    durationSeconds: number;
+  } | null;
+}
+
+interface ClassroomModule {
+  id: number;
+  title: string;
+  description: string | null;
+  orderIndex: number;
+  isLocked: boolean;
+  lessons: ClassroomLesson[];
+}
+
+interface ClassroomData {
+  course: {
+    id: number;
+    title: string;
+    slug: string;
+    description: string;
+    minWatchPercentage: number;
+  };
+  enrollment: {
+    id: number;
+    status: 'active' | 'completed';
+    completedAt: string | null;
+  };
+  overallProgress: {
+    totalLessons: number;
+    completedLessons: number;
+    percentage: number;
+  };
+  modules: ClassroomModule[];
+}
+
+interface CourseDetail {
+  id: number;
+  title: string;
+  slug: string;
+  description: string;
+  thumbnailUrl: string | null;
+  price: string;
+  currency: string;
+  status: string;
+  minWatchPercentage: number;
+  modules: {
+    id: number;
+    title: string;
+    description: string | null;
+    orderIndex: number;
+    lessons: {
+      id: number;
+      title: string;
+      orderIndex: number;
+      status: string;
+      videoDurationSeconds: number | null;
+    }[];
+  }[];
 }
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [csrfToken, setCsrfToken] = useState<string>('');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState<'classroom' | 'login' | 'register' | 'admin'>('classroom');
+  const [activeTab, setActiveTab] = useState<'catalog' | 'course-detail' | 'my-courses' | 'classroom' | 'admin'>('catalog');
+  
+  // Catálogo y cursos
+  const [catalog, setCatalog] = useState<CourseSummary[]>([]);
+  const [myCourses, setMyCourses] = useState<EnrolledCourse[]>([]);
+  const [courseDetail, setCourseDetail] = useState<CourseDetail | null>(null);
+  const [classroomData, setClassroomData] = useState<ClassroomData | null>(null);
+  const [selectedLesson, setSelectedLesson] = useState<ClassroomLesson | null>(null);
+  const [expandedModules, setExpandedModules] = useState<number[]>([]);
+  const [pendingOrders, setPendingOrders] = useState<any[]>([]);
 
-  // Modal Auth View State (Login vs Register en la tarjeta de dos paneles)
+  // Auth modal y formulario
+  const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
-
-  // Lección activa
-  const [selectedLessonId, setSelectedLessonId] = useState<number>(1);
-  const [expandedModules, setExpandedModules] = useState<number[]>([1, 2]);
-
-  // Auth form states
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [msg, setMsg] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
-
-  // Módulos con bloqueo secuencial
-  const [modulesList, setModulesList] = useState<Module[]>([
-    {
-      id: 1,
-      title: 'Módulo 1: Fundamentos y Conceptos Clave',
-      isLocked: false,
-      lessons: [
-        {
-          id: 1,
-          title: '01. Introducción al curso y metodología',
-          duration: '12:45 min',
-          isCompleted: true,
-          isLocked: false,
-          currentProgressPct: 100,
-          videoRef: 'dQw4w9WgXcQ',
-        },
-        {
-          id: 2,
-          title: '02. Configuración del entorno de trabajo',
-          duration: '18:20 min',
-          isCompleted: true,
-          isLocked: false,
-          currentProgressPct: 100,
-          videoRef: 'dQw4w9WgXcQ',
-        },
-        {
-          id: 3,
-          title: '03. Arquitectura y primeros pasos',
-          duration: '15:10 min',
-          isCompleted: false,
-          isLocked: false,
-          currentProgressPct: 65,
-          videoRef: 'dQw4w9WgXcQ',
-        },
-      ],
-    },
-    {
-      id: 2,
-      title: 'Módulo 2: Implementación Práctica y Casos Reales',
-      isLocked: false,
-      lessons: [
-        {
-          id: 4,
-          title: '04. Estructura de datos y lógica base',
-          duration: '22:30 min',
-          isCompleted: false,
-          isLocked: false,
-          currentProgressPct: 0,
-          videoRef: 'dQw4w9WgXcQ',
-        },
-        {
-          id: 5,
-          title: '05. Casos de estudio y resolución de problemas',
-          duration: '25:00 min',
-          isCompleted: false,
-          isLocked: false,
-          currentProgressPct: 0,
-          videoRef: 'dQw4w9WgXcQ',
-        },
-      ],
-    },
-    {
-      id: 3,
-      title: 'Módulo 3: Proyecto Final y Certificación',
-      isLocked: true,
-      lessons: [
-        {
-          id: 6,
-          title: '06. Evaluación y entrega del proyecto',
-          duration: '30:00 min',
-          isCompleted: false,
-          isLocked: true,
-          currentProgressPct: 0,
-          videoRef: 'dQw4w9WgXcQ',
-        },
-        {
-          id: 7,
-          title: '07. Cierre del curso y emisión de certificado',
-          duration: '10:15 min',
-          isCompleted: false,
-          isLocked: true,
-          currentProgressPct: 0,
-          videoRef: 'dQw4w9WgXcQ',
-        },
-      ],
-    },
-  ]);
+  const [authMsg, setAuthMsg] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
+  const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
   useEffect(() => {
     checkAuth();
+    loadCatalog();
   }, []);
+
+  useEffect(() => {
+    if (currentUser) {
+      loadMyCourses();
+      loadMyOrders();
+    }
+  }, [currentUser]);
+
+  // Mensaje flotante automático
+  const showToast = (type: 'success' | 'error' | 'info', text: string) => {
+    setToast({ type, text });
+    setTimeout(() => {
+      setToast((prev) => (prev?.text === text ? null : prev));
+    }, 4500);
+  };
 
   const checkAuth = async () => {
     try {
-      const res = await fetch('/api/auth/me');
+      const res = await api('/api/auth/me');
       if (res.ok) {
         const data = await res.json();
         setCurrentUser(data.user);
-        setCsrfToken(data.csrfToken || '');
+        if (data.csrfToken) {
+          setGlobalCsrfToken(data.csrfToken);
+        }
+      } else {
+        setCurrentUser(null);
       }
     } catch {
       setCurrentUser(null);
     }
   };
 
+  const loadCatalog = async () => {
+    try {
+      const res = await api('/api/courses');
+      if (res.ok) {
+        const data = await res.json();
+        setCatalog(data);
+      }
+    } catch (err) {
+      console.error('Error cargando catálogo:', err);
+    }
+  };
+
+  const loadMyCourses = async () => {
+    try {
+      const res = await api('/api/courses/my/enrolled');
+      if (res.ok) {
+        const data = await res.json();
+        setMyCourses(data);
+      }
+    } catch (err) {
+      console.error('Error cargando cursos inscritos:', err);
+    }
+  };
+
+  const loadMyOrders = async () => {
+    try {
+      const res = await api('/api/orders/my');
+      if (res.ok) {
+        const data = await res.json();
+        setPendingOrders(data.filter((o: any) => o.status === 'pending'));
+      }
+    } catch (err) {
+      console.error('Error cargando órdenes:', err);
+    }
+  };
+
+  const loadCourseDetail = async (slug: string) => {
+    try {
+      const res = await api(`/api/courses/${slug}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCourseDetail(data);
+        setActiveTab('course-detail');
+      } else {
+        showToast('error', 'No se pudo cargar el detalle del curso');
+      }
+    } catch (err) {
+      showToast('error', 'Error de conexión');
+    }
+  };
+
+  const enterClassroom = async (slug: string) => {
+    try {
+      const res = await api(`/api/courses/${slug}/classroom`);
+      if (res.ok) {
+        const data: ClassroomData = await res.json();
+        setClassroomData(data);
+        setActiveTab('classroom');
+
+        // Expandir todos los módulos desbloqueados por defecto
+        const unlockedModuleIds = data.modules.filter((m) => !m.isLocked).map((m) => m.id);
+        setExpandedModules(unlockedModuleIds);
+
+        // Seleccionar la primera lección desbloqueada o la primera disponible
+        let foundLesson: ClassroomLesson | null = null;
+        for (const mod of data.modules) {
+          if (!mod.isLocked) {
+            for (const les of mod.lessons) {
+              if (!les.isCompleted) {
+                foundLesson = les;
+                break;
+              }
+            }
+            if (foundLesson) break;
+          }
+        }
+        if (!foundLesson && data.modules[0]?.lessons[0]) {
+          foundLesson = data.modules[0].lessons[0];
+        }
+        setSelectedLesson(foundLesson);
+      } else if (res.status === 403) {
+        showToast('error', 'No tienes una inscripción activa a este curso');
+      } else {
+        showToast('error', 'No se pudo cargar el aula virtual');
+      }
+    } catch (err) {
+      showToast('error', 'Error al acceder al aula');
+    }
+  };
+
+  const handleEnrollOrBuy = async (courseId: number, price: string) => {
+    if (!currentUser) {
+      setAuthModalOpen(true);
+      return;
+    }
+
+    try {
+      const res = await api('/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({ courseId }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        if (Number(price) === 0) {
+          showToast('success', '¡Inscripción exitosa! Bienvenido al curso.');
+          await loadMyCourses();
+          if (courseDetail) {
+            await enterClassroom(courseDetail.slug);
+          }
+        } else {
+          showToast(
+            'success',
+            `Orden #${data.id} creada por ${data.amount} ${data.currency}. El pago debe validarse en el panel administrativo.`
+          );
+          await loadMyOrders();
+          if (courseDetail) {
+            await loadCourseDetail(courseDetail.slug);
+          }
+        }
+      } else {
+        showToast('error', data.message || 'Error al procesar inscripción');
+      }
+    } catch (err: any) {
+      showToast('error', err.message || 'Error de comunicación');
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setMsg(null);
+    setAuthMsg(null);
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await api('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Error al iniciar sesión');
+      if (!res.ok) throw new Error(data.message || 'Credenciales inválidas');
+
       setCurrentUser(data.user);
-      setCsrfToken(data.csrfToken || '');
-      setActiveTab('classroom');
+      if (data.csrfToken) {
+        setGlobalCsrfToken(data.csrfToken);
+      }
+      setAuthModalOpen(false);
       setEmail('');
       setPassword('');
-      setMsg({ type: 'success', text: `¡Bienvenido de vuelta, ${data.user.fullName}!` });
+      showToast('success', `¡Bienvenido, ${data.user.fullName}!`);
     } catch (err: any) {
-      setMsg({ type: 'error', text: err.message });
+      setAuthMsg({ type: 'error', text: err.message });
     }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setMsg(null);
+    setAuthMsg(null);
     try {
-      const res = await fetch('/api/auth/register', {
+      const res = await api('/api/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, fullName }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Error en el registro');
-      setMsg({ type: 'success', text: '¡Cuenta creada! Ya puedes iniciar sesión con tus datos.' });
+
+      setAuthMsg({ type: 'success', text: '¡Cuenta creada! Ya puedes iniciar sesión.' });
       setAuthMode('login');
       setPassword('');
     } catch (err: any) {
-      setMsg({ type: 'error', text: err.message });
+      setAuthMsg({ type: 'error', text: err.message });
     }
+  };
+
+  const handleQuickLogin = (demoEmail: string, demoPass: string) => {
+    setEmail(demoEmail);
+    setPassword(demoPass);
+    setAuthMode('login');
   };
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await api('/api/auth/logout', { method: 'POST' });
       setCurrentUser(null);
-      setMsg({ type: 'success', text: 'Sesión finalizada con éxito' });
+      setClassroomData(null);
+      setMyCourses([]);
+      setActiveTab('catalog');
+      showToast('info', 'Has cerrado sesión.');
     } catch (err) {
       console.error(err);
     }
@@ -247,538 +386,747 @@ export default function App() {
     );
   };
 
-  const currentLesson = modulesList
-    .flatMap((m) => m.lessons)
-    .find((l) => l.id === selectedLessonId) || modulesList[0].lessons[0];
-
-  const allLessons = modulesList.flatMap((m) => m.lessons);
-  const completedLessonsCount = allLessons.filter((l) => l.isCompleted).length;
-  const overallPercentage = Math.round((completedLessonsCount / allLessons.length) * 100);
-
   return (
-    <div className="min-h-screen bg-[#f1f5f9] text-[#1e293b] flex flex-col font-sans antialiased selection:bg-blue-100 selection:text-blue-900">
-      
-      {/* HEADER MINIMALISTA */}
-      <header className="bg-white/90 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-40">
-        <div className="w-full px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
+      {/* Toast Alert */}
+      {toast && (
+        <div
+          className={`fixed bottom-6 right-6 z-50 max-w-md px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 border text-sm font-medium transition-all transform animate-bounce-subtle ${
+            toast.type === 'success'
+              ? 'bg-emerald-950/90 border-emerald-500/50 text-emerald-200'
+              : toast.type === 'error'
+              ? 'bg-rose-950/90 border-rose-500/50 text-rose-200'
+              : 'bg-blue-950/90 border-blue-500/50 text-blue-200'
+          }`}
+        >
+          {toast.type === 'success' ? (
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+          ) : (
+            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
+          )}
+          <span>{toast.text}</span>
+        </div>
+      )}
+
+      {/* Barra de Navegación Principal */}
+      <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-md border-b border-slate-800/80 px-4 sm:px-8 py-3.5 flex items-center justify-between">
+        <div className="flex items-center gap-8">
+          <button
+            onClick={() => setActiveTab('catalog')}
+            className="flex items-center gap-3 text-left group focus:outline-none"
+          >
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/25 group-hover:scale-105 transition">
+              <GraduationCap className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <span className="font-black text-lg text-white tracking-tight flex items-center gap-1.5">
+                AulaPro
+                <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-md bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                  DEMO
+                </span>
+              </span>
+              <p className="text-[11px] text-slate-400 -mt-0.5">Plataforma de Capacitación</p>
+            </div>
+          </button>
+
+          {/* Menú de Navegación */}
+          <nav className="hidden md:flex items-center gap-1 bg-slate-950/50 p-1 rounded-2xl border border-slate-800/80">
             <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition"
-              title="Alternar panel"
+              onClick={() => setActiveTab('catalog')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
+                activeTab === 'catalog'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+              }`}
             >
-              {sidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
+              <BookOpen className="w-4 h-4" />
+              Catálogo de Cursos
             </button>
 
-            <div 
-              className="flex items-center gap-3 cursor-pointer"
-              onClick={() => setActiveTab('classroom')}
-            >
-              <div className="w-10 h-10 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-                <Boxes className="w-5 h-5 stroke-[2.5]" />
-              </div>
-              <div>
-                <span className="font-extrabold text-base text-slate-900 tracking-tight flex items-center gap-2">
-                  CURSOS ONLINE
-                  <span className="text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-full">
-                    Plataforma
-                  </span>
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {currentUser ? (
-              <div className="flex items-center gap-3">
-                {(currentUser.role === 'admin' || currentUser.role === 'superadmin') && (
-                  <button
-                    onClick={() => setActiveTab(activeTab === 'admin' ? 'classroom' : 'admin')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                      activeTab === 'admin'
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'
-                    }`}
-                  >
-                    <Settings className="w-3.5 h-3.5" />
-                    <span>{activeTab === 'admin' ? 'Ver Aula' : 'Panel Admin'}</span>
-                  </button>
-                )}
-
-                <div className="text-right hidden sm:block">
-                  <div className="text-sm font-bold text-slate-800">{currentUser.fullName}</div>
-                  <div className="text-xs text-blue-600 font-semibold capitalize">{currentUser.role}</div>
-                </div>
-                <div className="w-9 h-9 rounded-full bg-blue-100 border-2 border-white shadow-sm text-blue-700 font-bold flex items-center justify-center text-xs">
-                  {currentUser.fullName.charAt(0).toUpperCase()}
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                  title="Cerrar sesión"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
-              </div>
-            ) : (
+            {currentUser && (
               <button
-                onClick={() => { setActiveTab('login'); setAuthMode('login'); }}
-                className="px-5 py-2 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-600/20 transition flex items-center gap-2"
+                onClick={() => {
+                  loadMyCourses();
+                  setActiveTab('my-courses');
+                }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
+                  activeTab === 'my-courses'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                }`}
               >
-                <LogIn className="w-4 h-4 stroke-[2.5]" />
-                Acceder al Curso
+                <Layers className="w-4 h-4" />
+                Mis Cursos ({myCourses.length})
               </button>
             )}
-          </div>
+
+            {classroomData && (
+              <button
+                onClick={() => setActiveTab('classroom')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
+                  activeTab === 'classroom'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                }`}
+              >
+                <Play className="w-4 h-4 text-emerald-400" />
+                Aula Virtual
+              </button>
+            )}
+
+            {currentUser && ['admin', 'superadmin'].includes(currentUser.role) && (
+              <button
+                onClick={() => setActiveTab('admin')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
+                  activeTab === 'admin'
+                    ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                    : 'text-purple-400 hover:text-purple-200 hover:bg-purple-950/30'
+                }`}
+              >
+                <ShieldCheck className="w-4 h-4" />
+                Panel Admin
+              </button>
+            )}
+          </nav>
+        </div>
+
+        {/* Acciones de Usuario */}
+        <div className="flex items-center gap-3">
+          {currentUser ? (
+            <div className="flex items-center gap-3 bg-slate-800/60 border border-slate-700/60 rounded-2xl p-1.5 pr-4">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-slate-700 to-slate-600 flex items-center justify-center font-bold text-sm text-white">
+                {currentUser.fullName.charAt(0)}
+              </div>
+              <div className="hidden sm:block text-left">
+                <p className="text-xs font-bold text-white truncate max-w-[140px]">{currentUser.fullName}</p>
+                <span className="text-[10px] uppercase font-extrabold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">
+                  {currentUser.role}
+                </span>
+              </div>
+              <button
+                onClick={handleLogout}
+                title="Cerrar sesión"
+                className="p-1.5 rounded-xl hover:bg-slate-700 text-slate-400 hover:text-rose-400 transition"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                setAuthMode('login');
+                setAuthModalOpen(true);
+              }}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-4 py-2.5 rounded-2xl shadow-lg shadow-blue-600/30 transition hover:scale-102"
+            >
+              <LogIn className="w-4 h-4" />
+              Iniciar Sesión
+            </button>
+          )}
         </div>
       </header>
 
-      {/* CUERPO PRINCIPAL FULL-WIDTH */}
-      <div className="flex-1 w-full px-4 sm:px-6 py-4 flex gap-6 overflow-hidden">
-        
-        {/* PANEL IZQUIERDO: FLOATING CARD CON ESQUINAS EXTRA REDONDEADAS (Inspirado en Imagen 1) */}
-        {activeTab === 'classroom' && sidebarOpen && (
-          <aside className="w-80 lg:w-88 flex-shrink-0 flex flex-col transition-all duration-300">
-            <div className="bg-white rounded-[2rem] border border-slate-100 p-6 shadow-xl shadow-slate-200/50 flex flex-col h-[calc(100vh-7.5rem)] sticky top-20 overflow-hidden">
-              
-              {/* Header del Panel Lateral */}
-              <div className="flex items-center justify-between pb-6 border-b border-slate-100">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-sm">
-                    <Boxes className="w-5 h-5 stroke-[2.5]" />
-                  </div>
-                  <span className="font-black text-sm tracking-widest text-slate-900 uppercase">
-                    CONTENIDO
-                  </span>
-                </div>
-                <button
-                  onClick={() => setSidebarOpen(false)}
-                  className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-center text-slate-400 hover:text-slate-600 transition"
-                >
-                  <PanelLeftClose className="w-4 h-4" />
-                </button>
+      {/* CONTENIDO PRINCIPAL POR VISTA */}
+      <main className="flex-1 p-4 sm:p-8 max-w-7xl w-full mx-auto">
+        {/* VISTA 1: CATÁLOGO DE CURSOS */}
+        {activeTab === 'catalog' && (
+          <div className="space-y-8 animate-fade-in">
+            {/* Hero */}
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 border border-slate-800 p-8 sm:p-12 shadow-2xl">
+              <div className="max-w-2xl space-y-4">
+                <span className="inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider bg-blue-500/20 text-blue-400 border border-blue-500/30 px-3 py-1 rounded-full">
+                  <Sparkles className="w-3.5 h-3.5" /> Capacitación Profesional Certificada
+                </span>
+                <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight">
+                  Aprende a tu ritmo con verificación de progreso real
+                </h1>
+                <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
+                  Sistema interactivo con seguimiento de visualización segundo a segundo y bloqueo secuencial anti-trampa.
+                </p>
               </div>
+            </div>
 
-              {/* Usuario Perfil Flotante (Como en la foto 1: Ajendra S. UI/UX Designer) */}
-              <div className="py-5 flex items-center gap-3.5 border-b border-slate-100">
-                <div className="relative">
-                  <div className="w-12 h-12 rounded-full bg-slate-100 border-2 border-white shadow-md flex items-center justify-center text-slate-700 font-bold text-base overflow-hidden">
-                    {currentUser ? (
-                      currentUser.fullName.charAt(0).toUpperCase()
-                    ) : (
-                      <span className="text-slate-400">👤</span>
-                    )}
-                  </div>
-                  <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white"></span>
-                </div>
-                <div className="overflow-hidden">
-                  <div className="font-bold text-sm text-slate-800 truncate">
-                    {currentUser ? currentUser.fullName : 'Estudiante Demo'}
-                  </div>
-                  <div className="text-xs text-slate-400 font-medium truncate">
-                    {currentUser ? currentUser.email : 'Inscripción Activa'}
-                  </div>
+            {/* Listado de Cursos */}
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-2xl font-black text-white">Cursos Disponibles</h2>
+                  <p className="text-xs text-slate-400">Selecciona un curso para ver su temario o inscribirte</p>
                 </div>
               </div>
 
-              {/* Lista de Módulos y Lecciones */}
-              <div className="flex-1 overflow-y-auto py-4 space-y-3 pr-1 scrollbar-thin">
-                <div className="flex items-center justify-between text-xs px-1 text-slate-400 font-bold uppercase tracking-wider">
-                  <span>Módulos del Curso</span>
-                  <span className="text-blue-600 font-bold">{overallPercentage}%</span>
-                </div>
-
-                {modulesList.map((mod, idx) => {
-                  const isExpanded = expandedModules.includes(mod.id);
-                  const isModuleActive = mod.lessons.some((l) => l.id === selectedLessonId);
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {catalog.map((c) => {
+                  const isEnrolled = myCourses.some((mc) => mc.courseId === c.id);
+                  const isFree = Number(c.price) === 0;
 
                   return (
-                    <div key={mod.id} className="rounded-2xl transition overflow-hidden">
-                      {/* Botón Módulo estilo Menú */}
-                      <button
-                        onClick={() => !mod.isLocked && toggleModule(mod.id)}
-                        disabled={mod.isLocked}
-                        className={`w-full px-3 py-3 rounded-2xl flex items-center justify-between text-left transition ${
-                          isModuleActive && !mod.isLocked
-                            ? 'text-blue-600 font-bold'
-                            : mod.isLocked
-                            ? 'text-slate-400 opacity-60 cursor-not-allowed'
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 font-medium'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3 truncate">
-                          {mod.isLocked ? (
-                            <Lock className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                    <div
+                      key={c.id}
+                      className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden hover:border-slate-700 transition flex flex-col group shadow-xl"
+                    >
+                      <div className="h-44 bg-gradient-to-tr from-slate-800 to-slate-700 relative p-6 flex flex-col justify-between">
+                        <div className="flex justify-between items-start">
+                          <span
+                            className={`text-xs font-black px-3 py-1 rounded-xl shadow-md ${
+                              isFree
+                                ? 'bg-emerald-500 text-white'
+                                : 'bg-blue-600 text-white'
+                            }`}
+                          >
+                            {isFree ? 'GRATIS' : `${c.price} ${c.currency}`}
+                          </span>
+                          <span className="text-[11px] font-bold bg-slate-900/80 backdrop-blur text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700">
+                            Min. {c.minWatchPercentage}%
+                          </span>
+                        </div>
+                        <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur border border-white/20 flex items-center justify-center text-white">
+                          <BookOpen className="w-6 h-6" />
+                        </div>
+                      </div>
+
+                      <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
+                        <div className="space-y-2">
+                          <h3 className="text-lg font-bold text-white group-hover:text-blue-400 transition">
+                            {c.title}
+                          </h3>
+                          <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
+                            {c.description || 'Domina los conceptos prácticos con este curso integral.'}
+                          </p>
+                        </div>
+
+                        <div className="pt-4 border-t border-slate-800 flex items-center gap-3">
+                          <button
+                            onClick={() => loadCourseDetail(c.slug)}
+                            className="flex-1 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2"
+                          >
+                            Ver Temario
+                          </button>
+
+                          {isEnrolled ? (
+                            <button
+                              onClick={() => enterClassroom(c.slug)}
+                              className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20"
+                            >
+                              <Play className="w-3.5 h-3.5" /> Entrar al Aula
+                            </button>
                           ) : (
-                            <Layers className={`w-4 h-4 flex-shrink-0 ${isModuleActive ? 'text-blue-600' : 'text-slate-400'}`} />
+                            <button
+                              onClick={() => handleEnrollOrBuy(c.id, c.price)}
+                              className="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20"
+                            >
+                              {isFree ? 'Inscribirme Gratis' : 'Comprar Curso'}
+                            </button>
                           )}
-                          <span className="text-xs truncate">{mod.title}</span>
                         </div>
-
-                        {/* Indicador azul a la derecha como en la Imagen 1 */}
-                        {isModuleActive && !mod.isLocked ? (
-                          <div className="w-2 h-5 rounded-full bg-blue-600 flex-shrink-0"></div>
-                        ) : !mod.isLocked ? (
-                          <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                        ) : null}
-                      </button>
-
-                      {/* Lecciones Anidadas */}
-                      {isExpanded && !mod.isLocked && (
-                        <div className="pl-4 pr-1 py-1 space-y-1">
-                          {mod.lessons.map((lesson) => {
-                            const isSelected = selectedLessonId === lesson.id;
-                            return (
-                              <button
-                                key={lesson.id}
-                                onClick={() => setSelectedLessonId(lesson.id)}
-                                className={`w-full p-2.5 rounded-xl flex items-center justify-between text-left transition text-xs ${
-                                  isSelected
-                                    ? 'bg-blue-50/80 text-blue-600 font-bold'
-                                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50 font-medium'
-                                }`}
-                              >
-                                <div className="flex items-center gap-2.5 truncate">
-                                  {lesson.isCompleted ? (
-                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
-                                  ) : isSelected ? (
-                                    <Play className="w-3.5 h-3.5 text-blue-600 fill-blue-600 flex-shrink-0" />
-                                  ) : (
-                                    <Circle className="w-3.5 h-3.5 text-slate-300 flex-shrink-0" />
-                                  )}
-                                  <span className="truncate">{lesson.title}</span>
-                                </div>
-                                <span className="text-[10px] text-slate-400 flex-shrink-0 ml-2">
-                                  {lesson.duration.split(' ')[0]}
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
+                      </div>
                     </div>
                   );
                 })}
               </div>
-
-              {/* Pie del Panel Lateral (Logout & Dark Mode switch como en Imagen 1) */}
-              <div className="pt-4 border-t border-slate-100 space-y-3">
-                <button
-                  onClick={handleLogout}
-                  className="w-full px-3 py-2.5 rounded-xl flex items-center gap-3 text-slate-500 hover:text-rose-600 hover:bg-rose-50 text-xs font-semibold transition"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span>Cerrar Sesión</span>
-                </button>
-
-                <div className="flex items-center justify-between px-3 py-2 text-xs font-semibold text-slate-500">
-                  <div className="flex items-center gap-3">
-                    <Moon className="w-4 h-4 text-slate-400" />
-                    <span>Modo Oscuro</span>
-                  </div>
-                  <div className="w-10 h-5 bg-slate-200 rounded-full relative cursor-pointer flex items-center p-0.5">
-                    <div className="w-4 h-4 rounded-full bg-white shadow-xs"></div>
-                  </div>
-                </div>
-              </div>
             </div>
-          </aside>
+          </div>
         )}
 
-        {/* ÁREA CENTRAL: REPRODUCTOR O MODAL DE LOGIN */}
-        <div className="flex-1 flex flex-col overflow-y-auto">
-          {msg && (
-            <div
-              className={`mb-6 p-4 rounded-2xl border text-sm font-semibold flex items-center justify-between ${
-                msg.type === 'success'
-                  ? 'bg-blue-50 border-blue-200 text-blue-800'
-                  : 'bg-rose-50 border-rose-200 text-rose-800'
-              }`}
+        {/* VISTA 2: DETALLE DEL CURSO Y TEMARIO */}
+        {activeTab === 'course-detail' && courseDetail && (
+          <div className="space-y-8 animate-fade-in max-w-5xl mx-auto">
+            <button
+              onClick={() => setActiveTab('catalog')}
+              className="text-xs font-bold text-slate-400 hover:text-white flex items-center gap-2 transition"
             >
-              <span>{msg.text}</span>
-              <button onClick={() => setMsg(null)} className="text-xs font-bold underline ml-4">
-                Cerrar
+              ← Volver al Catálogo
+            </button>
+
+            {/* Cabecera del Curso */}
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl flex flex-col md:flex-row gap-8 items-start justify-between">
+              <div className="space-y-4 max-w-2xl">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-black uppercase px-3 py-1 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                    {Number(courseDetail.price) === 0 ? 'Curso Gratuito' : `${courseDetail.price} ${courseDetail.currency}`}
+                  </span>
+                  <span className="text-xs text-slate-400 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5" /> Requisito de aprobación: {courseDetail.minWatchPercentage}%
+                  </span>
+                </div>
+                <h1 className="text-3xl font-black text-white">{courseDetail.title}</h1>
+                <p className="text-sm text-slate-300 leading-relaxed">{courseDetail.description}</p>
+              </div>
+
+              {/* Caja de Acción */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full md:w-80 space-y-4 shrink-0">
+                <div className="text-center space-y-1">
+                  <span className="text-xs text-slate-400">Inversión</span>
+                  <div className="text-3xl font-black text-white">
+                    {Number(courseDetail.price) === 0 ? 'Gratis' : `${courseDetail.price} ${courseDetail.currency}`}
+                  </div>
+                </div>
+
+                {myCourses.some((c) => c.courseId === courseDetail.id) ? (
+                  <button
+                    onClick={() => enterClassroom(courseDetail.slug)}
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-3 px-4 rounded-xl shadow-lg shadow-emerald-600/30 transition flex items-center justify-center gap-2"
+                  >
+                    <Play className="w-4 h-4" /> Ya estás inscrito: Entrar al Aula
+                  </button>
+                ) : pendingOrders.some((o) => o.courseId === courseDetail.id) ? (
+                  <div className="p-3 bg-amber-950/60 border border-amber-500/40 rounded-xl text-center space-y-1">
+                    <span className="text-xs font-bold text-amber-300 block">⚠️ Orden Pendiente de Pago</span>
+                    <p className="text-[11px] text-amber-200/80">
+                      Un administrador validará tu pago desde el panel para activar tu acceso.
+                    </p>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => handleEnrollOrBuy(courseDetail.id, courseDetail.price)}
+                    className="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-3 px-4 rounded-xl shadow-lg shadow-blue-600/30 transition flex items-center justify-center gap-2"
+                  >
+                    <ShoppingBag className="w-4 h-4" />
+                    {Number(courseDetail.price) === 0 ? 'Inscribirme Gratis Ahora' : 'Comprar Curso Ahora'}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Temario de Módulos y Lecciones */}
+            <div className="space-y-4">
+              <h2 className="text-xl font-black text-white">Temario del Curso</h2>
+              <div className="space-y-3">
+                {courseDetail.modules.map((m) => (
+                  <div key={m.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-slate-800 flex items-center justify-center font-bold text-xs text-blue-400">
+                          {m.orderIndex}
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-white">{m.title}</h3>
+                          {m.description && <p className="text-xs text-slate-400">{m.description}</p>}
+                        </div>
+                      </div>
+                      <span className="text-xs text-slate-500 font-medium">
+                        {m.lessons.length} lección(es)
+                      </span>
+                    </div>
+
+                    <div className="pl-11 space-y-2 border-t border-slate-800/80 pt-3">
+                      {m.lessons.map((l) => (
+                        <div key={l.id} className="flex items-center justify-between text-xs py-1.5 text-slate-300">
+                          <span className="flex items-center gap-2">
+                            <FileText className="w-3.5 h-3.5 text-slate-500" />
+                            {l.title}
+                          </span>
+                          {l.videoDurationSeconds && (
+                            <span className="text-slate-500 font-mono text-[11px]">
+                              {Math.floor(l.videoDurationSeconds / 60)}:{(l.videoDurationSeconds % 60).toString().padStart(2, '0')} min
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* VISTA 3: MIS CURSOS INSCRITOS */}
+        {activeTab === 'my-courses' && (
+          <div className="space-y-8 animate-fade-in">
+            <div>
+              <h1 className="text-2xl font-black text-white">Mis Cursos</h1>
+              <p className="text-xs text-slate-400">Continúa con tus capacitaciones y revisa tu avance en tiempo real</p>
+            </div>
+
+            {myCourses.length === 0 ? (
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center space-y-4 max-w-lg mx-auto">
+                <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mx-auto text-slate-400">
+                  <BookOpen className="w-8 h-8" />
+                </div>
+                <h3 className="text-lg font-bold text-white">No tienes cursos activos</h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Inscríbete a un curso del catálogo para comenzar a aprender de inmediato.
+                </p>
+                <button
+                  onClick={() => setActiveTab('catalog')}
+                  className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2.5 px-6 rounded-xl transition"
+                >
+                  Explorar Catálogo
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {myCourses.map((c) => (
+                  <div
+                    key={c.enrollmentId}
+                    className="bg-slate-900 border border-slate-800 rounded-3xl p-6 flex flex-col justify-between space-y-4 hover:border-slate-700 transition"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-start">
+                        <span
+                          className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full ${
+                            c.status === 'completed'
+                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                              : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                          }`}
+                        >
+                          {c.status === 'completed' ? 'Completado' : 'En Curso'}
+                        </span>
+                        <span className="text-xs font-bold text-slate-400">{c.progressPercentage}%</span>
+                      </div>
+
+                      <h3 className="text-base font-bold text-white">{c.title}</h3>
+                      <p className="text-xs text-slate-400 line-clamp-2">{c.description}</p>
+                    </div>
+
+                    <div className="space-y-3 pt-3 border-t border-slate-800">
+                      {/* Barra de progreso visual */}
+                      <div className="space-y-1.5">
+                        <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                          <div
+                            className="bg-gradient-to-r from-blue-500 to-emerald-400 h-full rounded-full transition-all duration-500"
+                            style={{ width: `${c.progressPercentage}%` }}
+                          ></div>
+                        </div>
+                        <div className="flex justify-between text-[11px] text-slate-500">
+                          <span>{c.completedLessons} de {c.totalLessons} lecciones aprobadas</span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => enterClassroom(c.slug)}
+                        className="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20"
+                      >
+                        <Play className="w-3.5 h-3.5" /> Continuar Aprendiendo
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* VISTA 4: AULA VIRTUAL CON BLOQUEO SECUENCIAL Y REPRODUCTOR */}
+        {activeTab === 'classroom' && classroomData && (
+          <div className="space-y-6 animate-fade-in">
+            {/* Header del Aula */}
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-400 bg-blue-500/10 px-2.5 py-0.5 rounded border border-blue-500/20">
+                  Aula Virtual
+                </span>
+                <h1 className="text-2xl font-black text-white mt-1">{classroomData.course.title}</h1>
+              </div>
+
+              {/* Progreso del curso */}
+              <div className="flex items-center gap-6">
+                <div className="text-right">
+                  <span className="text-xs text-slate-400">Progreso Total</span>
+                  <div className="text-xl font-black text-white">
+                    {classroomData.overallProgress.percentage}%
+                  </div>
+                </div>
+
+                {classroomData.enrollment.status === 'completed' ? (
+                  <button
+                    disabled
+                    title="Certificado disponible al concluir la validación académica"
+                    className="opacity-75 cursor-not-allowed bg-emerald-600/80 text-white text-xs font-bold py-2.5 px-4 rounded-xl flex items-center gap-2"
+                  >
+                    <Award className="w-4 h-4" /> Solicitar Certificado
+                  </button>
+                ) : (
+                  <span className="text-xs bg-slate-800 text-slate-400 font-semibold px-3 py-2 rounded-xl border border-slate-700">
+                    {classroomData.overallProgress.completedLessons} / {classroomData.overallProgress.totalLessons} lecciones
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Layout Principal: Temario Izquierda + Reproductor Centro/Derecha */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* Barra lateral de Temario y Candados */}
+              <div className="lg:col-span-4 space-y-3">
+                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-4">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-blue-400" /> Contenido del Curso
+                  </h3>
+
+                  <div className="space-y-3">
+                    {classroomData.modules.map((m) => {
+                      const isExpanded = expandedModules.includes(m.id);
+
+                      return (
+                        <div
+                          key={m.id}
+                          className={`rounded-2xl border transition-all ${
+                            m.isLocked
+                              ? 'bg-slate-950/40 border-slate-800/50 opacity-60'
+                              : 'bg-slate-950/90 border-slate-800'
+                          }`}
+                        >
+                          {/* Cabecera del Módulo */}
+                          <button
+                            onClick={() => !m.isLocked && toggleModule(m.id)}
+                            className="w-full text-left p-3.5 flex items-center justify-between gap-3 focus:outline-none"
+                          >
+                            <div className="flex items-center gap-2.5">
+                              {m.isLocked ? (
+                                <Lock className="w-4 h-4 text-slate-500 shrink-0" />
+                              ) : (
+                                <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0"></div>
+                              )}
+                              <span className="text-xs font-bold text-white line-clamp-1">{m.title}</span>
+                            </div>
+
+                            {!m.isLocked && (
+                              <ChevronDown
+                                className={`w-4 h-4 text-slate-400 transition-transform ${
+                                  isExpanded ? 'rotate-180' : ''
+                                }`}
+                              />
+                            )}
+                          </button>
+
+                          {/* Lecciones del Módulo */}
+                          {isExpanded && !m.isLocked && (
+                            <div className="px-3 pb-3 space-y-1.5 border-t border-slate-800/80 pt-2">
+                              {m.lessons.map((les) => {
+                                const isCurrent = selectedLesson?.id === les.id;
+
+                                return (
+                                  <button
+                                    key={les.id}
+                                    onClick={() => !les.isLocked && setSelectedLesson(les)}
+                                    disabled={les.isLocked}
+                                    className={`w-full text-left p-2.5 rounded-xl text-xs flex items-center justify-between gap-2 transition ${
+                                      isCurrent
+                                        ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/30'
+                                        : les.isCompleted
+                                        ? 'bg-slate-900/60 hover:bg-slate-800 text-slate-200'
+                                        : 'bg-slate-900/40 hover:bg-slate-800 text-slate-300'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 line-clamp-1">
+                                      {les.isCompleted ? (
+                                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                                      ) : les.isLocked ? (
+                                        <Lock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                                      ) : (
+                                        <Play className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                                      )}
+                                      <span className="truncate">{les.title}</span>
+                                    </div>
+
+                                    {les.isCompleted && (
+                                      <span className="text-[10px] text-emerald-400 font-bold shrink-0">
+                                        100%
+                                      </span>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Área del Reproductor y Contenido Central */}
+              <div className="lg:col-span-8 space-y-6">
+                {selectedLesson ? (
+                  <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-6 shadow-2xl">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-xs text-blue-400 font-bold">Lección Actual</span>
+                        <h2 className="text-xl font-black text-white">{selectedLesson.title}</h2>
+                      </div>
+                      {selectedLesson.isCompleted && (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          <CheckCircle2 className="w-4 h-4" /> Lección Completada
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Reproductor con Heartbeat Real */}
+                    {selectedLesson.video ? (
+                      <YouTubeTracker
+                        videoId={selectedLesson.video.providerRef}
+                        lessonId={selectedLesson.id}
+                        minWatchPercentage={classroomData.course.minWatchPercentage}
+                        onProgressUpdate={(stats) => {
+                          if (stats.isCompleted) {
+                            showToast('success', '¡Felicitaciones! Has completado esta lección.');
+                            enterClassroom(classroomData.course.slug);
+                          }
+                        }}
+                      />
+                    ) : (
+                      <div className="aspect-video bg-slate-950 rounded-2xl flex flex-col items-center justify-center text-slate-500 space-y-2">
+                        <FileText className="w-8 h-8" />
+                        <span className="text-xs">Esta lección no incluye video</span>
+                      </div>
+                    )}
+
+                    {/* Pestañas de la lección */}
+                    <div className="border-t border-slate-800 pt-4 space-y-3">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                        Normas de Aprobación
+                      </h4>
+                      <p className="text-xs text-slate-300 leading-relaxed">
+                        Para registrar tu asistencia debes reproducir al menos el{' '}
+                        <strong className="text-white">{classroomData.course.minWatchPercentage}%</strong> del video
+                        sin saltar fragmentos. Nuestro sistema guarda automáticamente tu avance mediante pulsos de
+                        verificación en bloques de 10 segundos.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center text-slate-400">
+                    Selecciona una lección del temario para comenzar a estudiar.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* VISTA 5: PANEL ADMINISTRATIVO */}
+        {activeTab === 'admin' && currentUser && ['admin', 'superadmin'].includes(currentUser.role) && (
+          <div className="animate-fade-in">
+            <AdminPanel onClose={() => setActiveTab('catalog')} />
+          </div>
+        )}
+      </main>
+
+      {/* MODAL DE AUTENTICACIÓN (LOGIN Y REGISTRO CON ACCESO RÁPIDO PARA DEMO) */}
+      {authModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-8 shadow-2xl relative space-y-6">
+            <button
+              onClick={() => setAuthModalOpen(false)}
+              className="absolute top-5 right-5 text-slate-400 hover:text-white transition"
+            >
+              ✕
+            </button>
+
+            <div className="text-center space-y-1">
+              <h3 className="text-2xl font-black text-white">
+                {authMode === 'login' ? 'Iniciar Sesión' : 'Crear Cuenta'}
+              </h3>
+              <p className="text-xs text-slate-400">
+                {authMode === 'login'
+                  ? 'Ingresa a tu cuenta para acceder a tus cursos'
+                  : 'Regístrate para acceder al catálogo completo'}
+              </p>
+            </div>
+
+            {/* Accesos Rápidos de Demo */}
+            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
+              <span className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider flex items-center gap-1">
+                <UserCheck className="w-3 h-3 text-blue-400" /> Cuentas de Demostración
+              </span>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('estudiante@demo.com', 'Estudiante2024!')}
+                  className="bg-slate-900 hover:bg-slate-800 text-slate-200 p-2 rounded-xl border border-slate-800 text-left transition"
+                >
+                  <strong className="block text-blue-400">Estudiante</strong>
+                  <span className="text-[10px] text-slate-400">estudiante@demo.com</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('admin@demo.com', 'Admin2024!')}
+                  className="bg-slate-900 hover:bg-slate-800 text-slate-200 p-2 rounded-xl border border-slate-800 text-left transition"
+                >
+                  <strong className="block text-purple-400">Administrador</strong>
+                  <span className="text-[10px] text-slate-400">admin@demo.com</span>
+                </button>
+              </div>
+            </div>
+
+            {authMsg && (
+              <div
+                className={`p-3 rounded-xl text-xs font-semibold ${
+                  authMsg.type === 'error'
+                    ? 'bg-rose-950/80 text-rose-300 border border-rose-500/30'
+                    : 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/30'
+                }`}
+              >
+                {authMsg.text}
+              </div>
+            )}
+
+            <form onSubmit={authMode === 'login' ? handleLogin : handleRegister} className="space-y-4">
+              {authMode === 'register' && (
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-300">Nombre Completo</label>
+                  <input
+                    type="text"
+                    required
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Ej. Juan Pérez"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-300">Correo Electrónico</label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="usuario@ejemplo.com"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-300">Contraseña</label>
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs py-3 rounded-xl transition shadow-lg shadow-blue-600/30"
+              >
+                {authMode === 'login' ? 'Entrar a la Plataforma' : 'Registrarme'}
+              </button>
+            </form>
+
+            <div className="text-center pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode(authMode === 'login' ? 'register' : 'login');
+                  setAuthMsg(null);
+                }}
+                className="text-xs text-blue-400 hover:underline"
+              >
+                {authMode === 'login'
+                  ? '¿No tienes cuenta? Regístrate aquí'
+                  : '¿Ya tienes cuenta? Inicia sesión aquí'}
               </button>
             </div>
-          )}
-
-          {activeTab === 'classroom' && (
-            <div className="space-y-6">
-              {/* Tarjeta Flotante del Reproductor */}
-              <div className="bg-white rounded-[2rem] border border-slate-100 p-6 shadow-xl shadow-slate-200/50 space-y-6">
-                
-                {/* Reproductor Interactivo con Tracking Automático de YouTube */}
-                <YouTubeTracker
-                  key={`${selectedLessonId}-${currentLesson.videoRef}`}
-                  videoId={currentLesson.videoRef}
-                  lessonId={selectedLessonId}
-                  minWatchPercentage={85}
-                  onProgressUpdate={(stats) => {
-                    setModulesList((prev) =>
-                      prev.map((mod) => ({
-                        ...mod,
-                        lessons: mod.lessons.map((l) =>
-                          l.id === selectedLessonId
-                            ? {
-                                ...l,
-                                isCompleted: stats.isCompleted,
-                                currentProgressPct: stats.currentWatchPercentage,
-                              }
-                            : l
-                        ),
-                      }))
-                    );
-                  }}
-                />
-
-                {/* Info Bar */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-100">
-                  <div>
-                    <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">
-                      Lección en reproducción
-                    </span>
-                    <h1 className="text-xl sm:text-2xl font-black text-slate-900 mt-1">
-                      {currentLesson.title}
-                    </h1>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-slate-400">Piso de Aprobación:</span>
-                    <span className="text-xs font-extrabold text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1 rounded-xl">
-                      85% Visto
-                    </span>
-                  </div>
-                </div>
-
-                {/* Descripción */}
-                <p className="text-sm font-medium text-slate-600 leading-relaxed">
-                  En esta lección se desarrollan los conceptos clave del módulo. Puedes reproducir a cualquier velocidad
-                  (hasta 2x). El progreso se registra automáticamente en el servidor mediante bloques de 10 segundos.
-                </p>
-
-                {/* Recursos */}
-                <div className="pt-2">
-                  <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-blue-600" /> Material Adjunto
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between hover:bg-blue-50/50 hover:border-blue-200 transition cursor-pointer">
-                      <div className="flex items-center gap-3 truncate">
-                        <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs flex-shrink-0">
-                          PDF
-                        </div>
-                        <span className="text-xs font-semibold text-slate-700 truncate">
-                          Guia_Estudio_Modulo_1.pdf
-                        </span>
-                      </div>
-                      <Download className="w-4 h-4 text-slate-400 hover:text-blue-600" />
-                    </div>
-
-                    <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between hover:bg-blue-50/50 hover:border-blue-200 transition cursor-pointer">
-                      <div className="flex items-center gap-3 truncate">
-                        <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-xs flex-shrink-0">
-                          XLS
-                        </div>
-                        <span className="text-xs font-semibold text-slate-700 truncate">
-                          Plantilla_Ejercicios.xlsx
-                        </span>
-                      </div>
-                      <Download className="w-4 h-4 text-slate-400 hover:text-emerald-600" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* VISTA 2: PANEL DE ADMINISTRACIÓN (PAGOS Y AUDITORÍA DE VIDEOS) */}
-          {activeTab === 'admin' && (
-            <AdminPanel
-              onClose={() => setActiveTab('classroom')}
-              csrfToken={csrfToken}
-            />
-          )}
-
-          {/* VISTA 3: LOGIN / REGISTER CARD DE DOBLE PANEL (Inspirado en Imagen 2) */}
-          {(activeTab === 'login' || activeTab === 'register') && (
-            <div className="flex-1 flex items-center justify-center py-6">
-              <div className="w-full max-w-4xl bg-white rounded-[2.5rem] border border-slate-100 shadow-2xl shadow-slate-200/80 overflow-hidden flex flex-col md:flex-row">
-                
-                {/* Panel Izquierdo del Formulario (Inputs redondeados gris suave) */}
-                <div className="w-full md:w-1/2 p-8 sm:p-12 flex flex-col justify-between">
-                  <div>
-                    <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-                      {authMode === 'login' ? 'Login' : 'Sign Up'}
-                    </h2>
-
-                    <form
-                      onSubmit={authMode === 'login' ? handleLogin : handleRegister}
-                      className="mt-8 space-y-4"
-                    >
-                      {authMode === 'register' && (
-                        <div>
-                          <div className="relative">
-                            <input
-                              type="text"
-                              required
-                              value={fullName}
-                              onChange={(e) => setFullName(e.target.value)}
-                              placeholder="Nombre Completo"
-                              className="w-full px-4 py-3.5 rounded-2xl bg-slate-100/80 border-0 text-slate-900 font-medium placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition text-sm"
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      <div>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                            <Mail className="w-4 h-4" />
-                          </div>
-                          <input
-                            type="email"
-                            required
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="Email"
-                            className="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-slate-100/80 border-0 text-slate-900 font-medium placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition text-sm"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                            <Lock className="w-4 h-4" />
-                          </div>
-                          <input
-                            type={showPassword ? 'text' : 'password'}
-                            required
-                            minLength={8}
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Password"
-                            className="w-full pl-11 pr-11 py-3.5 rounded-2xl bg-slate-100/80 border-0 text-slate-900 font-medium placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition text-sm"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600"
-                          >
-                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Remember me checkbox */}
-                      <div className="flex items-center justify-between pt-1">
-                        <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-600">
-                          <input
-                            type="checkbox"
-                            checked={rememberMe}
-                            onChange={(e) => setRememberMe(e.target.checked)}
-                            className="w-4 h-4 rounded-md accent-[#0f2327] cursor-pointer"
-                          />
-                          <span>Remember me</span>
-                        </label>
-                        <a href="#" className="text-xs font-semibold text-slate-400 hover:text-slate-600">
-                          Forgot password?
-                        </a>
-                      </div>
-
-                      {/* Botón Principal Login / Sign Up */}
-                      <button
-                        type="submit"
-                        className="w-full py-3.5 rounded-2xl font-bold text-sm bg-[#0a1e24] hover:bg-[#132c34] text-white shadow-lg shadow-slate-900/10 transition mt-2 cursor-pointer"
-                      >
-                        {authMode === 'login' ? 'Login' : 'Create Account'}
-                      </button>
-
-                      {/* Separador Or */}
-                      <div className="relative my-4">
-                        <div className="absolute inset-0 flex items-center">
-                          <div className="w-full border-t border-slate-200"></div>
-                        </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                          <span className="bg-white px-3 text-slate-400 font-bold">Or</span>
-                        </div>
-                      </div>
-
-                      {/* Botón Social Login */}
-                      <button
-                        type="button"
-                        onClick={() => alert('Autenticación con Google disponible próximamente')}
-                        className="w-full py-3.5 rounded-2xl bg-slate-100/80 hover:bg-slate-200/80 text-slate-700 font-bold text-sm flex items-center justify-center gap-3 transition cursor-pointer"
-                      >
-                        <svg className="w-4 h-4" viewBox="0 0 24 24">
-                          <path
-                            fill="#4285F4"
-                            d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
-                          />
-                          <path
-                            fill="#34A853"
-                            d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
-                          />
-                          <path
-                            fill="#FBBC05"
-                            d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
-                          />
-                          <path
-                            fill="#EA4335"
-                            d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-                          />
-                        </svg>
-                        <span>Continue with Google</span>
-                      </button>
-                    </form>
-                  </div>
-
-                  <p className="mt-8 text-center text-[11px] text-slate-400 leading-relaxed">
-                    By logging into the application, you are agreeing to the{' '}
-                    <span className="underline cursor-pointer">Terms & Conditions</span> and{' '}
-                    <span className="underline cursor-pointer">Privacy Policy</span>.
-                  </p>
-                </div>
-
-                {/* Panel Derecho Gradiente Azul/Cian Oscuro (Exacto como en Imagen 2) */}
-                <div className="w-full md:w-1/2 bg-gradient-to-br from-[#062026] via-[#0d343c] to-[#1c5d6b] p-8 sm:p-12 flex flex-col items-center justify-center text-center text-white relative">
-                  <div className="max-w-xs space-y-4">
-                    <h3 className="text-3xl font-extrabold tracking-tight">
-                      {authMode === 'login' ? 'Hello there' : 'Welcome back'}
-                    </h3>
-                    <p className="text-sm font-medium text-slate-300 leading-relaxed">
-                      {authMode === 'login'
-                        ? 'Begin your learning journey using this platform, and start mastering new skills today.'
-                        : 'Already have an account? Sign in to resume your lessons and track your progress.'}
-                    </p>
-
-                    <div className="pt-4">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAuthMode(authMode === 'login' ? 'register' : 'login');
-                          setMsg(null);
-                        }}
-                        className="px-8 py-3 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-sm backdrop-blur-sm transition cursor-pointer"
-                      >
-                        {authMode === 'login' ? 'Sign Up' : 'Sign In'}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Botón flotante para regresar al aula */}
-                  <button
-                    onClick={() => setActiveTab('classroom')}
-                    className="absolute top-6 right-6 text-xs text-white/60 hover:text-white flex items-center gap-1 font-semibold"
-                  >
-                    <span>Volver al aula</span> &times;
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
