@@ -35,6 +35,10 @@ COPY backend/package*.json ./
 RUN npm ci --omit=dev
 
 COPY --from=backend-builder /app/backend/dist ./dist
+
+# Migraciones SQL y script que las aplica al arrancar
+COPY backend/migrations ./migrations
+COPY backend/scripts ./scripts
 COPY --from=frontend-builder /app/frontend/dist ./public
 
 ENV NODE_ENV=production
@@ -42,4 +46,4 @@ ENV PORT=3000
 
 EXPOSE 3000
 
-CMD ["node", "dist/main"]
+CMD ["sh", "-c", "node scripts/migrate.js && node dist/main"]
