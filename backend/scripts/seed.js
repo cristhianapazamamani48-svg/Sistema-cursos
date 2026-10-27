@@ -191,12 +191,12 @@ async function main() {
 
     // 5. Inscripción de estudiante en curso gratuito
     const enrollRes = await client.query(
-      `INSERT INTO enrollments (user_id, course_id, status)
-       VALUES ($1, $2, 'active')
+      `INSERT INTO enrollments (user_id, course_id, enrolled_by, status)
+       VALUES ($1, $2, $3, 'active')
        ON CONFLICT (user_id, course_id) DO UPDATE
        SET status = 'active'
        RETURNING id;`,
-      [estudianteId, freeCourseId],
+      [estudianteId, freeCourseId, adminId],
     );
     const enrollmentId = enrollRes.rows[0].id;
 
