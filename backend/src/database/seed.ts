@@ -74,7 +74,7 @@ async function main() {
         SELECT id FROM courses WHERE slug IN ('auditoria-interna-basica','excel-empresarial-basico'))
       `);
       await client.query(`DELETE FROM courses WHERE slug IN ('auditoria-interna-basica','excel-empresarial-basico')`);
-      await client.query(`DELETE FROM videos WHERE provider_ref IN ($1, $2)`, [DEMO_VIDEO_ID, PENDING_VIDEO_ID]);
+      await client.query(`DELETE FROM videos WHERE provider_ref = $1`, [PENDING_VIDEO_ID]);
       await client.query(`DELETE FROM users WHERE email LIKE '%@demo.com'`);
       await client.query('COMMIT');
       console.log('✅  Datos anteriores eliminados.\n');
