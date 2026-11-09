@@ -48,6 +48,20 @@ export class CoursesController {
     return this.coursesService.findMyEnrolledCourses(user.id);
   }
 
+  @Get('teacher/my-courses')
+  @UseGuards(SessionGuard, RolesGuard)
+  @Roles('admin', 'superadmin', 'docente')
+  async findTeacherCourses(@CurrentUser() user: User) {
+    return this.coursesService.findTeacherCourses(user);
+  }
+
+  @Get('preview/:slug')
+  @UseGuards(SessionGuard, RolesGuard)
+  @Roles('admin', 'superadmin', 'docente')
+  async previewCourse(@Param('slug') slug: string) {
+    return this.coursesService.findBySlug(slug, true);
+  }
+
   @Get(':slug')
   async findBySlug(@Param('slug') slug: string) {
     return this.coursesService.findBySlug(slug);
@@ -61,7 +75,7 @@ export class CoursesController {
 
   @Post()
   @UseGuards(SessionGuard, RolesGuard)
-  @Roles('admin', 'superadmin')
+  @Roles('admin', 'superadmin', 'docente')
   async create(@Body() body: unknown, @CurrentUser() user: User) {
     const parseResult = createCourseSchema.safeParse(body);
     if (!parseResult.success) {
@@ -70,13 +84,17 @@ export class CoursesController {
         errors: parseResult.error.format(),
       });
     }
-    return this.coursesService.create(parseResult.data, user.id);
+    return this.coursesService.create(parseResult.data, user.id, user.role);
   }
 
   @Patch(':id')
   @UseGuards(SessionGuard, RolesGuard)
-  @Roles('admin', 'superadmin')
-  async update(@Param('id', ParseIntPipe) id: number, @Body() body: unknown) {
+  @Roles('admin', 'superadmin', 'docente')
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: unknown,
+    @CurrentUser() user: User,
+  ) {
     const parseResult = updateCourseSchema.safeParse(body);
     if (!parseResult.success) {
       throw new BadRequestException({
@@ -84,7 +102,7 @@ export class CoursesController {
         errors: parseResult.error.format(),
       });
     }
-    return this.coursesService.update(id, parseResult.data);
+    return this.coursesService.update(id, parseResult.data, user);
   }
 
   @Post(':id/docentes')

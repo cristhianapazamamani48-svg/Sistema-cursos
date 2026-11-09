@@ -16,7 +16,7 @@ import {
   Course,
   Module as CourseModule,
 } from '../database/schema/courses.schema';
-import { users } from '../database/schema/users.schema';
+import { users, User } from '../database/schema/users.schema';
 import { lessons } from '../database/schema/lessons.schema';
 import { videos } from '../database/schema/videos.schema';
 import {
@@ -44,13 +44,71 @@ export class CoursesService {
   }
 
   /**
-   * Obtener curso por Slug o ID con sus módulos activos
+   * Listar cursos gestionados por el docente o todos si es admin/superadmin
+   * Incluye el conteo de módulos y lecciones activas
    */
-  async findBySlug(slug: string) {
+  async findTeacherCourses(user: User) {
+    const isStaffAdmin = user.role === 'admin' || user.role === 'superadmin';
+
+    let query = `
+      SELECT 
+        c.id,
+        c.title,
+        c.slug,
+        c.description,
+        c.thumbnail_url as "thumbnailUrl",
+        c.price,
+        c.currency,
+        c.status,
+        c.min_watch_percentage as "minWatchPercentage",
+        c.created_by as "createdBy",
+        c.created_at as "createdAt",
+        c.updated_at as "updatedAt",
+        COUNT(DISTINCT m.id) FILTER (WHERE m.deleted_at IS NULL)::int AS "modulesCount",
+        COUNT(DISTINCT l.id) FILTER (WHERE l.deleted_at IS NULL AND m.deleted_at IS NULL)::int AS "lessonsCount"
+      FROM courses c
+      LEFT JOIN modules m ON m.course_id = c.id AND m.deleted_at IS NULL
+      LEFT JOIN lessons l ON l.module_id = m.id AND l.deleted_at IS NULL
+    `;
+
+    const params: any[] = [];
+
+    if (!isStaffAdmin) {
+      query += `
+        WHERE (c.created_by = $1 OR c.id IN (SELECT course_id FROM course_docentes WHERE user_id = $1))
+      `;
+      params.push(user.id);
+    }
+
+    query += `
+      GROUP BY c.id
+      ORDER BY c.created_at DESC;
+    `;
+
+    const result = await this.pool.query(query, params);
+    return result.rows.map((row) => ({
+      ...row,
+      id: Number(row.id),
+      createdBy: Number(row.createdBy),
+      minWatchPercentage: Number(row.minWatchPercentage),
+      modulesCount: Number(row.modulesCount) || 0,
+      lessonsCount: Number(row.lessonsCount) || 0,
+    }));
+  }
+
+  /**
+   * Obtener curso por Slug o ID con sus módulos activos
+   * Permite incluir borradores si allowDraft = true (para vista docente/admin)
+   */
+  async findBySlug(slug: string, allowDraft = false) {
+    const condition = allowDraft
+      ? eq(courses.slug, slug)
+      : and(eq(courses.slug, slug), eq(courses.status, 'published'));
+
     const [course] = await this.db
       .select()
       .from(courses)
-      .where(and(eq(courses.slug, slug), eq(courses.status, 'published')))
+      .where(condition)
       .limit(1);
 
     if (!course) {
@@ -63,10 +121,10 @@ export class CoursesService {
       .where(and(eq(modules.courseId, course.id), isNull(modules.deletedAt)))
       .orderBy(modules.orderIndex);
 
-    // Obtener lecciones públicas sin providerRef
+    // Obtener lecciones (públicas o con borrador si allowDraft) sin providerRef
     const modulesWithLessons = await Promise.all(
       courseModules.map(async (mod) => {
-        const modLessons = await this.getModuleLessons(mod.id);
+        const modLessons = await this.getModuleLessons(mod.id, allowDraft);
         return {
           ...mod,
           lessons: modLessons,
@@ -80,7 +138,16 @@ export class CoursesService {
     };
   }
 
-  private async getModuleLessons(moduleId: number) {
+  private async getModuleLessons(moduleId: number, includeDraft = false) {
+    const conditions = [
+      eq(lessons.moduleId, moduleId),
+      isNull(lessons.deletedAt),
+    ];
+
+    if (!includeDraft) {
+      conditions.push(eq(lessons.status, 'published'));
+    }
+
     const rows = await this.db
       .select({
         id: lessons.id,
@@ -91,13 +158,7 @@ export class CoursesService {
       })
       .from(lessons)
       .leftJoin(videos, eq(lessons.videoId, videos.id))
-      .where(
-        and(
-          eq(lessons.moduleId, moduleId),
-          eq(lessons.status, 'published'),
-          isNull(lessons.deletedAt),
-        ),
-      )
+      .where(and(...conditions))
       .orderBy(lessons.orderIndex);
 
     return rows;
@@ -106,7 +167,7 @@ export class CoursesService {
   /**
    * Crear un nuevo curso
    */
-  async create(dto: CreateCourseDto, creatorId: number) {
+  async create(dto: CreateCourseDto, creatorId: number, userRole?: string) {
     const existing = await this.db
       .select({ id: courses.id })
       .from(courses)
@@ -132,16 +193,42 @@ export class CoursesService {
       })
       .returning();
 
+    // Si quien lo crea es docente, también lo asignamos en course_docentes
+    if (userRole === 'docente') {
+      await this.db
+        .insert(courseDocentes)
+        .values({
+          courseId: newCourse.id,
+          userId: creatorId,
+        })
+        .onConflictDoNothing();
+    }
+
     return newCourse;
   }
 
   /**
    * Actualizar curso
    */
-  async update(id: number, dto: UpdateCourseDto) {
+  async update(id: number, dto: UpdateCourseDto, user?: User) {
     const [existing] = await this.db.select().from(courses).where(eq(courses.id, id)).limit(1);
     if (!existing) {
       throw new NotFoundException(`Curso #${id} no encontrado`);
+    }
+
+    if (user && user.role === 'docente') {
+      const isCreator = existing.createdBy === user.id;
+      if (!isCreator) {
+        const [assigned] = await this.db
+          .select()
+          .from(courseDocentes)
+          .where(and(eq(courseDocentes.courseId, id), eq(courseDocentes.userId, user.id)))
+          .limit(1);
+
+        if (!assigned) {
+          throw new ForbiddenException('No tienes permiso para modificar este curso');
+        }
+      }
     }
 
     if (dto.slug && dto.slug !== existing.slug) {

@@ -21,6 +21,7 @@ import {
 
 import AdminPanel from './AdminPanel';
 import YouTubeTracker from './YouTubeTracker';
+import TeacherCoursesView from './TeacherCoursesView';
 import { api, setCsrfToken as setGlobalCsrfToken } from './api';
 
 interface User {
@@ -142,6 +143,7 @@ export default function App() {
   const [selectedLesson, setSelectedLesson] = useState<ClassroomLesson | null>(null);
   const [expandedModules, setExpandedModules] = useState<number[]>([]);
   const [pendingOrders, setPendingOrders] = useState<any[]>([]);
+  const [teacherSubTab, setTeacherSubTab] = useState<'teaching' | 'enrolled'>('teaching');
 
   // Auth modal y formulario
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -227,7 +229,10 @@ export default function App() {
 
   const loadCourseDetail = async (slug: string) => {
     try {
-      const res = await api(`/api/courses/${slug}`);
+      let res = await api(`/api/courses/${slug}`);
+      if (!res.ok && currentUser && ['admin', 'superadmin', 'docente'].includes(currentUser.role)) {
+        res = await api(`/api/courses/preview/${slug}`);
+      }
       if (res.ok) {
         const data = await res.json();
         setCourseDetail(data);
@@ -456,7 +461,7 @@ export default function App() {
                 }`}
               >
                 <Layers className="w-4 h-4" />
-                Mis Cursos ({myCourses.length})
+                Mis Cursos {currentUser.role === 'estudiante' ? `(${myCourses.length})` : ''}
               </button>
             )}
 
@@ -731,78 +736,174 @@ export default function App() {
           </div>
         )}
 
-        {/* VISTA 3: MIS CURSOS INSCRITOS */}
-        {activeTab === 'my-courses' && (
-          <div className="space-y-8 animate-fade-in">
-            <div>
-              <h1 className="text-2xl font-black text-white">Mis Cursos</h1>
-              <p className="text-xs text-slate-400">Continúa con tus capacitaciones y revisa tu avance en tiempo real</p>
-            </div>
+        {/* VISTA 3: MIS CURSOS (DOCENTE / ADMIN / ESTUDIANTE) */}
+        {activeTab === 'my-courses' && currentUser && (
+          <div className="space-y-6 animate-fade-in">
+            {['docente', 'admin', 'superadmin'].includes(currentUser.role) ? (
+              <div className="space-y-6">
+                {/* Selector de subvista solo si el staff tiene cursos como estudiante */}
+                {myCourses.length > 0 && (
+                  <div className="flex items-center gap-2 bg-slate-900/60 p-1.5 rounded-2xl border border-slate-800 w-fit">
+                    <button
+                      onClick={() => setTeacherSubTab('teaching')}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                        teacherSubTab === 'teaching'
+                          ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                          : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      }`}
+                    >
+                      🎓 Gestión de Mis Cursos
+                    </button>
+                    <button
+                      onClick={() => setTeacherSubTab('enrolled')}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                        teacherSubTab === 'enrolled'
+                          ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                          : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      }`}
+                    >
+                      📚 Cursos Inscritos como Estudiante ({myCourses.length})
+                    </button>
+                  </div>
+                )}
 
-            {myCourses.length === 0 ? (
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center space-y-4 max-w-lg mx-auto">
-                <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mx-auto text-slate-400">
-                  <BookOpen className="w-8 h-8" />
-                </div>
-                <h3 className="text-lg font-bold text-white">No tienes cursos activos</h3>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Inscríbete a un curso del catálogo para comenzar a aprender de inmediato.
-                </p>
-                <button
-                  onClick={() => setActiveTab('catalog')}
-                  className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2.5 px-6 rounded-xl transition"
-                >
-                  Explorar Catálogo
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {myCourses.map((c) => (
-                  <div
-                    key={c.enrollmentId}
-                    className="bg-slate-900 border border-slate-800 rounded-3xl p-6 flex flex-col justify-between space-y-4 hover:border-slate-700 transition"
-                  >
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-start">
-                        <span
-                          className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full ${
-                            c.status === 'completed'
-                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                              : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                          }`}
-                        >
-                          {c.status === 'completed' ? 'Completado' : 'En Curso'}
-                        </span>
-                        <span className="text-xs font-bold text-slate-400">{c.progressPercentage}%</span>
-                      </div>
-
-                      <h3 className="text-base font-bold text-white">{c.title}</h3>
-                      <p className="text-xs text-slate-400 line-clamp-2">{c.description}</p>
+                {teacherSubTab === 'teaching' ? (
+                  <TeacherCoursesView
+                    currentUser={currentUser}
+                    onViewAsStudent={loadCourseDetail}
+                    showToast={showToast}
+                  />
+                ) : (
+                  <div className="space-y-6">
+                    <div>
+                      <h2 className="text-xl font-black text-white">Mis Cursos Inscritos</h2>
+                      <p className="text-xs text-slate-400">Tus inscripciones y avance como estudiante</p>
                     </div>
 
-                    <div className="space-y-3 pt-3 border-t border-slate-800">
-                      {/* Barra de progreso visual */}
-                      <div className="space-y-1.5">
-                        <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-                          <div
-                            className="bg-gradient-to-r from-blue-500 to-emerald-400 h-full rounded-full transition-all duration-500"
-                            style={{ width: `${c.progressPercentage}%` }}
-                          ></div>
-                        </div>
-                        <div className="flex justify-between text-[11px] text-slate-500">
-                          <span>{c.completedLessons} de {c.totalLessons} lecciones aprobadas</span>
-                        </div>
-                      </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {myCourses.map((c) => (
+                        <div
+                          key={c.enrollmentId}
+                          className="bg-slate-900 border border-slate-800 rounded-3xl p-6 flex flex-col justify-between space-y-4 hover:border-slate-700 transition"
+                        >
+                          <div className="space-y-3">
+                            <div className="flex justify-between items-start">
+                              <span
+                                className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full ${
+                                  c.status === 'completed'
+                                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                    : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                                }`}
+                              >
+                                {c.status === 'completed' ? 'Completado' : 'En Curso'}
+                              </span>
+                              <span className="text-xs font-bold text-slate-400">{c.progressPercentage}%</span>
+                            </div>
 
-                      <button
-                        onClick={() => enterClassroom(c.slug)}
-                        className="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20"
-                      >
-                        <Play className="w-3.5 h-3.5" /> Continuar Aprendiendo
-                      </button>
+                            <h3 className="text-base font-bold text-white">{c.title}</h3>
+                            <p className="text-xs text-slate-400 line-clamp-2">{c.description}</p>
+                          </div>
+
+                          <div className="space-y-3 pt-3 border-t border-slate-800">
+                            <div className="space-y-1.5">
+                              <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                                <div
+                                  className="bg-gradient-to-r from-blue-500 to-emerald-400 h-full rounded-full transition-all duration-500"
+                                  style={{ width: `${c.progressPercentage}%` }}
+                                ></div>
+                              </div>
+                              <div className="flex justify-between text-[11px] text-slate-500">
+                                <span>{c.completedLessons} de {c.totalLessons} lecciones aprobadas</span>
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={() => enterClassroom(c.slug)}
+                              className="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20"
+                            >
+                              <Play className="w-3.5 h-3.5" /> Continuar Aprendiendo
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ))}
+                )}
+              </div>
+            ) : (
+              /* VISTA PARA ESTUDIANTES */
+              <div className="space-y-8">
+                <div>
+                  <h1 className="text-2xl font-black text-white">Mis Cursos</h1>
+                  <p className="text-xs text-slate-400">Continúa con tus capacitaciones y revisa tu avance en tiempo real</p>
+                </div>
+
+                {myCourses.length === 0 ? (
+                  <div className="bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center space-y-4 max-w-lg mx-auto">
+                    <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mx-auto text-slate-400">
+                      <BookOpen className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-lg font-bold text-white">No tienes cursos activos</h3>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Inscríbete a un curso del catálogo para comenzar a aprender de inmediato.
+                    </p>
+                    <button
+                      onClick={() => setActiveTab('catalog')}
+                      className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2.5 px-6 rounded-xl transition"
+                    >
+                      Explorar Catálogo
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {myCourses.map((c) => (
+                      <div
+                        key={c.enrollmentId}
+                        className="bg-slate-900 border border-slate-800 rounded-3xl p-6 flex flex-col justify-between space-y-4 hover:border-slate-700 transition"
+                      >
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-start">
+                            <span
+                              className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full ${
+                                c.status === 'completed'
+                                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                  : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                              }`}
+                            >
+                              {c.status === 'completed' ? 'Completado' : 'En Curso'}
+                            </span>
+                            <span className="text-xs font-bold text-slate-400">{c.progressPercentage}%</span>
+                          </div>
+
+                          <h3 className="text-base font-bold text-white">{c.title}</h3>
+                          <p className="text-xs text-slate-400 line-clamp-2">{c.description}</p>
+                        </div>
+
+                        <div className="space-y-3 pt-3 border-t border-slate-800">
+                          {/* Barra de progreso visual */}
+                          <div className="space-y-1.5">
+                            <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                              <div
+                                className="bg-gradient-to-r from-blue-500 to-emerald-400 h-full rounded-full transition-all duration-500"
+                                style={{ width: `${c.progressPercentage}%` }}
+                              ></div>
+                            </div>
+                            <div className="flex justify-between text-[11px] text-slate-500">
+                              <span>{c.completedLessons} de {c.totalLessons} lecciones aprobadas</span>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => enterClassroom(c.slug)}
+                            className="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20"
+                          >
+                            <Play className="w-3.5 h-3.5" /> Continuar Aprendiendo
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
