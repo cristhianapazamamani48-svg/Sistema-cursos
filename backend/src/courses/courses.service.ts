@@ -25,6 +25,7 @@ import {
   AssignDocenteDto,
   CreateModuleDto,
   UpdateModuleDto,
+  CatalogQueryDto,
 } from './dto/course.dto';
 
 @Injectable()
@@ -37,6 +38,71 @@ export class CoursesService {
   /**
    * Listar cursos públicos o todos (según rol)
    */
+  /**
+   * Catálogo público de cursos publicados
+   * Soporta búsqueda por término (título, descripción, temática o nombre del docente)
+   * y filtro por tipo de precio ('all', 'free', 'paid')
+   */
+  async findCatalog(query: CatalogQueryDto) {
+    const { search, priceType } = query;
+
+    let sql = `
+      SELECT 
+        c.id,
+        c.title,
+        c.slug,
+        c.description,
+        c.category,
+        c.thumbnail_url as "thumbnailUrl",
+        c.price,
+        c.currency,
+        c.status,
+        c.min_watch_percentage as "minWatchPercentage",
+        c.created_by as "createdBy",
+        c.created_at as "createdAt",
+        c.updated_at as "updatedAt",
+        COALESCE(u.full_name, 'Docente Certificado') AS "teacherName",
+        COUNT(DISTINCT l.id) FILTER (WHERE l.deleted_at IS NULL AND m.deleted_at IS NULL)::int AS "lessonsCount"
+      FROM courses c
+      LEFT JOIN users u ON u.id = c.created_by
+      LEFT JOIN modules m ON m.course_id = c.id AND m.deleted_at IS NULL
+      LEFT JOIN lessons l ON l.module_id = m.id AND l.deleted_at IS NULL
+      WHERE c.status = 'published'
+    `;
+
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    // Filtro por búsqueda de texto
+    if (search && search.trim().length > 0) {
+      const term = `%${search.trim()}%`;
+      sql += ` AND (c.title ILIKE $${paramIndex} OR c.description ILIKE $${paramIndex} OR c.category ILIKE $${paramIndex} OR u.full_name ILIKE $${paramIndex})`;
+      params.push(term);
+      paramIndex++;
+    }
+
+    // Filtro por tipo de precio
+    if (priceType === 'free') {
+      sql += ` AND CAST(c.price AS numeric) = 0`;
+    } else if (priceType === 'paid') {
+      sql += ` AND CAST(c.price AS numeric) > 0`;
+    }
+
+    sql += `
+      GROUP BY c.id, u.full_name
+      ORDER BY c.created_at DESC
+    `;
+
+    const result = await this.pool.query(sql, params);
+    return result.rows.map((row) => ({
+      ...row,
+      id: Number(row.id),
+      createdBy: Number(row.createdBy),
+      minWatchPercentage: Number(row.minWatchPercentage),
+      lessonsCount: Number(row.lessonsCount) || 0,
+    }));
+  }
+
   async findAll(publishedOnly = true) {
     if (publishedOnly) {
       return this.db.select().from(courses).where(eq(courses.status, 'published'));

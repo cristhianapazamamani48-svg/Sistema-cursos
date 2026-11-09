@@ -6,6 +6,7 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   UseGuards,
   ParseIntPipe,
   BadRequestException,
@@ -22,6 +23,7 @@ import {
   createModuleSchema,
   updateModuleSchema,
   reorderModulesSchema,
+  catalogQuerySchema,
 } from './dto/course.dto';
 import { SessionGuard } from '../auth/guards/session.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -34,8 +36,15 @@ export class CoursesController {
   constructor(private readonly coursesService: CoursesService) {}
 
   @Get()
-  async findAll() {
-    return this.coursesService.findAll(true);
+  async findAll(@Query() query: Record<string, any>) {
+    const parseResult = catalogQuerySchema.safeParse(query);
+    if (!parseResult.success) {
+      throw new BadRequestException({
+        message: 'Parámetros de búsqueda de catálogo inválidos',
+        errors: parseResult.error.format(),
+      });
+    }
+    return this.coursesService.findCatalog(parseResult.data);
   }
 
   @Get('admin/all')

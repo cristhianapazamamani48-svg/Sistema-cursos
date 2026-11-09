@@ -37,3 +37,9 @@ export const reorderModulesSchema = z.object({
   moduleIds: z.array(z.coerce.number().positive()).min(1),
 });
 export type ReorderModulesDto = z.infer<typeof reorderModulesSchema>;
+
+export const catalogQuerySchema = z.object({
+  search: z.string().optional().default(''),
+  priceType: z.enum(['all', 'free', 'paid']).optional().default('all'),
+});
+export type CatalogQueryDto = z.infer<typeof catalogQuerySchema>;
