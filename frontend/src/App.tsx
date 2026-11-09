@@ -1093,122 +1093,266 @@ export default function App() {
           </div>
         )}
 
-        {/* VISTA 4: AULA VIRTUAL CON BLOQUEO SECUENCIAL Y REPRODUCTOR */}
+        {/* VISTA 4: AULA VIRTUAL CON PROGRESO VISIBLE (V2.3) */}
         {activeTab === 'classroom' && classroomData && (
           <div className="space-y-6 animate-fade-in">
-            {/* Header del Aula */}
-            <div className="bg-white border border-[#D1D5DB] rounded-3xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
-              <div>
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#F2412C] bg-[#F2412C]/10 px-2.5 py-0.5 rounded border border-[#F2412C]/20">
-                  Aula Virtual
-                </span>
-                <h1 className="text-2xl font-black text-[#2B2D33] mt-1">{classroomData.course.title}</h1>
-              </div>
+            {/* Header del Aula con Progreso Total y Posible Insignia de Finalización */}
+            {(() => {
+              const isCourseCompleted =
+                classroomData.enrollment.status === 'completed' ||
+                (classroomData.overallProgress.totalLessons > 0 &&
+                  classroomData.overallProgress.completedLessons >= classroomData.overallProgress.totalLessons);
 
-              {/* Progreso del curso */}
-              <div className="flex items-center gap-6">
-                <div className="text-right">
-                  <span className="text-xs text-[#555861]">Progreso Total</span>
-                  <div className="text-xl font-black text-[#2B2D33]">
-                    {classroomData.overallProgress.percentage}%
+              return (
+                <div className="bg-white border border-[#D1D5DB] rounded-3xl p-6 shadow-xs space-y-4">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#F2412C] bg-[#F2412C]/10 px-2.5 py-0.5 rounded border border-[#F2412C]/20">
+                          Aula Virtual
+                        </span>
+                        {isCourseCompleted && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded border border-emerald-300">
+                            <Award className="w-3.5 h-3.5 text-emerald-600" /> Insignia: Curso Completado
+                          </span>
+                        )}
+                      </div>
+                      <h1 className="text-2xl font-black text-[#2B2D33] mt-1">
+                        {classroomData.course.title}
+                      </h1>
+                    </div>
+
+                    {/* Resumen numérico de progreso total */}
+                    <div className="flex items-center gap-4 self-start md:self-auto">
+                      <div className="text-right">
+                        <span className="text-xs text-[#555861] font-medium">Progreso Total</span>
+                        <div className="text-2xl font-black text-[#2B2D33]">
+                          {classroomData.overallProgress.percentage}%
+                        </div>
+                      </div>
+                      <div className="px-3.5 py-2 rounded-xl bg-[#F8F9FA] border border-[#D1D5DB] text-xs font-bold text-[#2B2D33]">
+                        {classroomData.overallProgress.completedLessons} de {classroomData.overallProgress.totalLessons} lecciones
+                      </div>
+                    </div>
                   </div>
-                </div>
 
-                {classroomData.enrollment.status === 'completed' ? (
-                  <button
-                    disabled
-                    title="Certificado disponible al concluir la validación académica"
-                    className="opacity-75 cursor-not-allowed bg-emerald-600/80 text-white text-xs font-bold py-2.5 px-4 rounded-xl flex items-center gap-2"
-                  >
-                    <Award className="w-4 h-4" /> Solicitar Certificado
-                  </button>
-                ) : (
-                  <span className="text-xs bg-[#363940] text-[#555861] font-semibold px-3 py-2 rounded-xl border border-[#40444B]">
-                    {classroomData.overallProgress.completedLessons} / {classroomData.overallProgress.totalLessons} lecciones
-                  </span>
-                )}
-              </div>
-            </div>
+                  {/* Barra de progreso total del curso */}
+                  <div className="space-y-1.5">
+                    <div className="w-full bg-[#E4E6EA] h-3 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          isCourseCompleted ? 'bg-emerald-500' : 'bg-[#F2412C]'
+                        }`}
+                        style={{ width: `${Math.max(classroomData.overallProgress.percentage, 2)}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between items-center text-[11px] text-[#555861]">
+                      <span>Exigencia de asistencia mínima: <strong>{classroomData.course.minWatchPercentage}%</strong> por video</span>
+                      <span className="font-semibold text-[#2B2D33]">
+                        {isCourseCompleted
+                          ? '¡100% de lecciones completadas!'
+                          : `${classroomData.overallProgress.totalLessons - classroomData.overallProgress.completedLessons} lecciones pendientes`}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Insignia destacada: Curso Completado */}
+                  {isCourseCompleted && (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between gap-4 text-emerald-950 shadow-xs animate-fade-in">
+                      <div className="flex items-center gap-3.5">
+                        <div className="w-11 h-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-sm shrink-0">
+                          <Award className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300">
+                              Reconocimiento Oficial
+                            </span>
+                            <h4 className="text-sm font-black text-emerald-950">Insignia: Curso Completado</h4>
+                          </div>
+                          <p className="text-xs text-emerald-700 mt-0.5">
+                            ¡Felicitaciones! Has completado todas las lecciones y horas lectivas requeridas.
+                          </p>
+                        </div>
+                      </div>
+
+                      <span className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black shadow-xs shrink-0">
+                        <CheckCircle2 className="w-4 h-4" />
+                        Aprobado
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Layout Principal: Temario Izquierda + Reproductor Centro/Derecha */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-              {/* Barra lateral de Temario y Candados */}
+              {/* Barra lateral de Temario, Progreso de Módulos y Candados */}
               <div className="lg:col-span-4 space-y-3">
                 <div className="bg-white border border-[#D1D5DB] rounded-3xl p-5 space-y-4 shadow-xs">
-                  <h3 className="text-sm font-bold text-[#2B2D33] flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-[#F2412C]" /> Contenido del Curso
-                  </h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-[#2B2D33] flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-[#F2412C]" /> Contenido del Curso
+                    </h3>
+                    <span className="text-[11px] font-bold text-[#555861]">
+                      {classroomData.modules.length} módulos
+                    </span>
+                  </div>
 
                   <div className="space-y-3">
-                    {classroomData.modules.map((m) => {
+                    {classroomData.modules.map((m, mIdx) => {
                       const isExpanded = expandedModules.includes(m.id);
+                      const modTotal = m.lessons.length;
+                      const modCompleted = m.lessons.filter((l) => l.isCompleted).length;
+                      const modPercent = modTotal > 0 ? Math.round((modCompleted / modTotal) * 100) : 0;
+                      const isModFinished = modTotal > 0 && modCompleted === modTotal;
+
+                      // Si el módulo está bloqueado, identificar el módulo anterior incompleto
+                      let blockingMessage = '';
+                      if (m.isLocked) {
+                        const priorIncompleteMod = classroomData.modules
+                          .slice(0, mIdx)
+                          .find((prev) => prev.lessons.some((l) => !l.isCompleted));
+                        if (priorIncompleteMod) {
+                          const pendingInPrior = priorIncompleteMod.lessons.filter((l) => !l.isCompleted).length;
+                          blockingMessage = `Completa las ${pendingInPrior} lección(es) pendiente(s) de "${priorIncompleteMod.title}" para desbloquear este módulo.`;
+                        } else {
+                          blockingMessage = 'Completa las lecciones del módulo anterior para desbloquear este contenido.';
+                        }
+                      }
 
                       return (
                         <div
                           key={m.id}
-                          className={`rounded-2xl border transition-all ${
+                          className={`rounded-2xl border transition-all overflow-hidden ${
                             m.isLocked
-                              ? 'bg-[#F0F2F5] border-[#E4E6EA] opacity-60'
+                              ? 'bg-[#F4F5F7] border-[#D1D5DB]/80'
                               : 'bg-[#F8F9FA] border-[#D1D5DB]'
                           }`}
                         >
-                          {/* Cabecera del Módulo */}
+                          {/* Cabecera del Módulo con Barra de Progreso del Módulo */}
                           <button
                             onClick={() => !m.isLocked && toggleModule(m.id)}
-                            className="w-full text-left p-3.5 flex items-center justify-between gap-3 focus:outline-none"
+                            disabled={m.isLocked}
+                            className={`w-full text-left p-3.5 flex flex-col gap-2 transition ${
+                              m.isLocked ? 'cursor-not-allowed opacity-85' : 'cursor-pointer hover:bg-slate-100/60'
+                            }`}
                           >
-                            <div className="flex items-center gap-2.5">
-                              {m.isLocked ? (
-                                <Lock className="w-4 h-4 text-[#636870] shrink-0" />
-                              ) : (
-                                <div className="w-2 h-2 rounded-full bg-[#F5543F] shrink-0"></div>
-                              )}
-                              <span className="text-xs font-bold text-[#2B2D33] line-clamp-1">{m.title}</span>
+                            <div className="flex items-center justify-between gap-3 w-full">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                {m.isLocked ? (
+                                  <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+                                ) : isModFinished ? (
+                                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                                ) : (
+                                  <div className="w-2.5 h-2.5 rounded-full bg-[#F2412C] shrink-0" />
+                                )}
+                                <span className="text-xs font-bold text-[#2B2D33] line-clamp-1">
+                                  {m.title}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-2 shrink-0">
+                                {!m.isLocked && (
+                                  <span className="text-[10px] font-extrabold text-[#555861]">
+                                    {modCompleted}/{modTotal} ({modPercent}%)
+                                  </span>
+                                )}
+                                {!m.isLocked && (
+                                  <ChevronDown
+                                    className={`w-4 h-4 text-[#555861] transition-transform ${
+                                      isExpanded ? 'rotate-180' : ''
+                                    }`}
+                                  />
+                                )}
+                              </div>
                             </div>
 
+                            {/* Barra de progreso por módulo */}
                             {!m.isLocked && (
-                              <ChevronDown
-                                className={`w-4 h-4 text-[#555861] transition-transform ${
-                                  isExpanded ? 'rotate-180' : ''
-                                }`}
-                              />
+                              <div className="w-full bg-[#E4E6EA] h-1.5 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all duration-300 ${
+                                    isModFinished ? 'bg-emerald-500' : 'bg-[#F2412C]'
+                                  }`}
+                                  style={{ width: `${Math.max(modPercent, 3)}%` }}
+                                />
+                              </div>
                             )}
                           </button>
 
-                          {/* Lecciones del Módulo */}
+                          {/* Mensaje de qué falta si el módulo está bloqueado */}
+                          {m.isLocked && (
+                            <div className="px-3.5 pb-3.5 pt-1 text-[11px] leading-relaxed text-amber-900 bg-amber-50/90 border-t border-amber-200/80 flex items-start gap-2">
+                              <Lock className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
+                              <span>{blockingMessage}</span>
+                            </div>
+                          )}
+
+                          {/* Lecciones del Módulo con Barra de Progreso por Lección */}
                           {isExpanded && !m.isLocked && (
-                            <div className="px-3 pb-3 space-y-1.5 border-t border-[#363940]/80 pt-2">
+                            <div className="px-3 pb-3 space-y-1.5 border-t border-[#D1D5DB] pt-2">
                               {m.lessons.map((les) => {
                                 const isCurrent = selectedLesson?.id === les.id;
+                                const watchPct = les.currentWatchPercentage || 0;
 
                                 return (
                                   <button
                                     key={les.id}
                                     onClick={() => !les.isLocked && setSelectedLesson(les)}
                                     disabled={les.isLocked}
-                                    className={`w-full text-left p-2.5 rounded-xl text-xs flex items-center justify-between gap-2 transition ${
+                                    className={`w-full text-left p-2.5 rounded-xl text-xs flex flex-col gap-1.5 transition cursor-pointer ${
                                       isCurrent
-                                        ? 'bg-[#F2412C] text-white font-bold shadow-md shadow-[#F2412C]/30'
+                                        ? 'bg-[#F2412C] text-white font-bold shadow-md shadow-[#F2412C]/20'
                                         : les.isCompleted
-                                        ? 'bg-[#2B2D33]/60 hover:bg-[#363940] text-slate-200'
-                                        : 'bg-white hover:bg-slate-100 text-[#2B2D33]'
+                                        ? 'bg-emerald-50 hover:bg-emerald-100/70 text-[#2B2D33] border border-emerald-200/60'
+                                        : 'bg-white hover:bg-slate-50 text-[#2B2D33] border border-[#D1D5DB]'
                                     }`}
                                   >
-                                    <div className="flex items-center gap-2 line-clamp-1">
-                                      {les.isCompleted ? (
-                                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                                      ) : les.isLocked ? (
-                                        <Lock className="w-3.5 h-3.5 text-[#636870] shrink-0" />
-                                      ) : (
-                                        <Play className="w-3.5 h-3.5 text-[#F2412C] shrink-0" />
-                                      )}
-                                      <span className="truncate">{les.title}</span>
+                                    <div className="flex items-center justify-between gap-2 w-full">
+                                      <div className="flex items-center gap-2 line-clamp-1 min-w-0">
+                                        {les.isCompleted ? (
+                                          <CheckCircle2
+                                            className={`w-4 h-4 shrink-0 ${
+                                              isCurrent ? 'text-white' : 'text-emerald-600'
+                                            }`}
+                                          />
+                                        ) : les.isLocked ? (
+                                          <Lock className="w-3.5 h-3.5 text-[#9EA3AC] shrink-0" />
+                                        ) : (
+                                          <Play
+                                            className={`w-3.5 h-3.5 shrink-0 ${
+                                              isCurrent ? 'text-white' : 'text-[#F2412C]'
+                                            }`}
+                                          />
+                                        )}
+                                        <span className="truncate">{les.title}</span>
+                                      </div>
+
+                                      <span
+                                        className={`text-[10px] font-black shrink-0 px-1.5 py-0.5 rounded ${
+                                          isCurrent
+                                            ? 'bg-white/20 text-white'
+                                            : les.isCompleted
+                                            ? 'bg-emerald-100 text-emerald-800'
+                                            : 'bg-slate-100 text-[#555861]'
+                                        }`}
+                                      >
+                                        {les.isCompleted ? '100%' : `${watchPct}%`}
+                                      </span>
                                     </div>
 
-                                    {les.isCompleted && (
-                                      <span className="text-[10px] text-emerald-400 font-bold shrink-0">
-                                        100%
-                                      </span>
+                                    {/* Barra de progreso por lección */}
+                                    {!les.isCompleted && !les.isLocked && watchPct > 0 && (
+                                      <div className="w-full bg-[#E4E6EA] h-1 rounded-full overflow-hidden">
+                                        <div
+                                          className={`h-full rounded-full ${
+                                            isCurrent ? 'bg-white' : 'bg-[#F2412C]'
+                                          }`}
+                                          style={{ width: `${watchPct}%` }}
+                                        />
+                                      </div>
                                     )}
                                   </button>
                                 );
@@ -1226,16 +1370,48 @@ export default function App() {
               <div className="lg:col-span-8 space-y-6">
                 {selectedLesson ? (
                   <div className="bg-white border border-[#D1D5DB] rounded-3xl p-6 space-y-6 shadow-xs">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div>
                         <span className="text-xs text-[#F2412C] font-bold">Lección Actual</span>
                         <h2 className="text-xl font-black text-[#2B2D33]">{selectedLesson.title}</h2>
                       </div>
-                      {selectedLesson.isCompleted && (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                          <CheckCircle2 className="w-4 h-4" /> Lección Completada
+                      {selectedLesson.isCompleted ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Lección Completada
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-xl bg-[#F8F9FA] text-[#2B2D33] border border-[#D1D5DB] shrink-0">
+                          <Clock className="w-3.5 h-3.5 text-[#F2412C]" />
+                          Avance: {selectedLesson.currentWatchPercentage}%
                         </span>
                       )}
+                    </div>
+
+                    {/* Barra de Progreso de la Lección Actual */}
+                    <div className="bg-[#F8F9FA] border border-[#D1D5DB] rounded-2xl p-4 space-y-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-bold text-[#2B2D33]">Progreso de Visualización de esta Lección</span>
+                        <span className="font-extrabold text-[#F2412C]">
+                          {selectedLesson.isCompleted ? '100%' : `${selectedLesson.currentWatchPercentage}%`}
+                        </span>
+                      </div>
+                      <div className="relative w-full bg-[#E4E6EA] h-2.5 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-300 ${
+                            selectedLesson.isCompleted ? 'bg-emerald-500' : 'bg-[#F2412C]'
+                          }`}
+                          style={{
+                            width: `${Math.max(
+                              selectedLesson.isCompleted ? 100 : selectedLesson.currentWatchPercentage,
+                              3
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-[11px] text-[#555861]">
+                        <span>Mínimo requerido para aprobar: <strong>{classroomData.course.minWatchPercentage}%</strong></span>
+                        <span>{selectedLesson.isCompleted ? 'Aprobada' : 'En reproducción'}</span>
+                      </div>
                     </div>
 
                     {/* Reproductor con Heartbeat Real */}
@@ -1252,27 +1428,27 @@ export default function App() {
                         }}
                       />
                     ) : (
-                      <div className="aspect-video bg-[#1A1C20] rounded-2xl flex flex-col items-center justify-center text-[#636870] space-y-2">
-                        <FileText className="w-8 h-8" />
+                      <div className="aspect-video bg-[#2B2D33] rounded-2xl flex flex-col items-center justify-center text-[#E4E6EA] space-y-2">
+                        <FileText className="w-8 h-8 text-white" />
                         <span className="text-xs">Esta lección no incluye video</span>
                       </div>
                     )}
 
                     {/* Pestañas de la lección */}
-                    <div className="border-t border-[#363940] pt-4 space-y-3">
+                    <div className="border-t border-[#E4E6EA] pt-4 space-y-3">
                       <h4 className="text-xs font-bold uppercase tracking-wider text-[#555861]">
                         Normas de Aprobación
                       </h4>
                       <p className="text-xs text-[#555861] leading-relaxed">
                         Para registrar tu asistencia debes reproducir al menos el{' '}
-                        <strong className="text-white">{classroomData.course.minWatchPercentage}%</strong> del video
+                        <strong className="text-[#2B2D33]">{classroomData.course.minWatchPercentage}%</strong> del video
                         sin saltar fragmentos. Nuestro sistema guarda automáticamente tu avance mediante pulsos de
                         verificación en bloques de 10 segundos.
                       </p>
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-[#2B2D33] border border-[#363940] rounded-3xl p-12 text-center text-[#555861]">
+                  <div className="bg-white border border-[#D1D5DB] rounded-3xl p-12 text-center text-[#555861] shadow-xs">
                     Selecciona una lección del temario para comenzar a estudiar.
                   </div>
                 )}
