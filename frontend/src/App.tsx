@@ -1176,10 +1176,21 @@ export default function App() {
                         </div>
                       </div>
 
-                      <span className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black shadow-xs shrink-0">
-                        <CheckCircle2 className="w-4 h-4" />
-                        Aprobado
-                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <a
+                          href="/certificado-demo"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-emerald-300 hover:bg-emerald-50 text-emerald-900 text-xs font-black shadow-xs transition cursor-pointer"
+                        >
+                          <Award className="w-4 h-4 text-[#F2412C]" />
+                          Ver Certificado (Demo)
+                        </a>
+                        <span className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black shadow-xs shrink-0">
+                          <CheckCircle2 className="w-4 h-4" />
+                          Aprobado
+                        </span>
+                      </div>
                     </div>
                   )}
                 </div>
