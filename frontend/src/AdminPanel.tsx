@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   CreditCard,
   Video,
@@ -11,6 +11,11 @@ import {
   Users,
   TrendingUp,
   ArrowRight,
+  Filter,
+  AlertCircle,
+  User,
+  BookOpen,
+  FileText,
 } from 'lucide-react';
 import { api } from './api';
 
@@ -37,17 +42,22 @@ interface StudentEnrollment {
   courseSlug: string;
 }
 
+/** snake_case porque viene directo del SQL JOIN en el backend */
 interface Order {
   id: number;
-  userId: number;
-  courseId: number;
+  user_id: number;
+  course_id: number;
   amount: string;
   currency: string;
   status: 'pending' | 'paid' | 'failed' | 'refunded' | 'expired';
-  receiptUrl?: string | null;
-  confirmedBy?: number | null;
-  confirmedAt?: string | null;
-  createdAt: string;
+  receipt_url?: string | null;
+  confirmed_by?: number | null;
+  confirmed_at?: string | null;
+  created_at: string;
+  student_name?: string | null;
+  student_email?: string | null;
+  course_title?: string | null;
+  course_slug?: string | null;
 }
 
 interface VideoItem {
@@ -82,6 +92,14 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
   const [loading, setLoading] = useState(false);
   const [actionMsg, setActionMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Filtro de órdenes
+  const [orderFilter, setOrderFilter] = useState<'all' | 'pending' | 'paid' | 'failed'>('all');
+
+  // Modal detalle de orden
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [showRejectForm, setShowRejectForm] = useState(false);
+
   // Modal rechazar video
   const [rejectingVideoId, setRejectingVideoId] = useState<number | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
@@ -91,13 +109,21 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
   const [approvalMinutes, setApprovalMinutes] = useState('10');
   const [approvalSeconds, setApprovalSeconds] = useState('0');
 
-  // Modal comprobante
-  const [previewReceipt, setPreviewReceipt] = useState<string | null>(null);
+  // Órdenes filtradas
+  const filteredOrders = useMemo(() => {
+    if (orderFilter === 'all') return orders;
+    return orders.filter((o) => o.status === orderFilter);
+  }, [orders, orderFilter]);
 
-  // Cargar resumen siempre al montar
-  useEffect(() => {
-    loadSummary();
-  }, []);
+  const orderCounts = useMemo(() => ({
+    all: orders.length,
+    pending: orders.filter((o) => o.status === 'pending').length,
+    paid: orders.filter((o) => o.status === 'paid').length,
+    failed: orders.filter((o) => o.status === 'failed').length,
+  }), [orders]);
+
+  /* ---- Carga de datos --------------------------------------------- */
+  useEffect(() => { loadSummary(); }, []);
 
   useEffect(() => {
     if (activeTab !== 'summary') fetchData();
@@ -106,13 +132,8 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
   const loadSummary = async () => {
     try {
       const res = await api('/api/admin/summary');
-      if (res.ok) {
-        const data = await res.json();
-        setSummary(data);
-      }
-    } catch (err) {
-      console.error(err);
-    }
+      if (res.ok) setSummary(await res.json());
+    } catch (err) { console.error(err); }
   };
 
   const fetchData = async () => {
@@ -129,11 +150,8 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
         const res = await api('/api/admin/students');
         if (res.ok) setStudents(await res.json());
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
   };
 
   const handleRefresh = () => {
@@ -151,6 +169,27 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Error al confirmar pago');
       setActionMsg({ type: 'success', text: `¡Orden #${orderId} aprobada e inscripción activada!` });
+      setSelectedOrder(null);
+      fetchData();
+      loadSummary();
+    } catch (err: any) {
+      setActionMsg({ type: 'error', text: err.message });
+    }
+  };
+
+  const handleRejectOrder = async () => {
+    if (!selectedOrder || rejectReason.trim().length < 5) return;
+    try {
+      const res = await api(`/api/orders/${selectedOrder.id}/reject`, {
+        method: 'PATCH',
+        body: JSON.stringify({ reason: rejectReason.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Error al rechazar la orden');
+      setActionMsg({ type: 'success', text: `Orden #${selectedOrder.id} rechazada correctamente.` });
+      setSelectedOrder(null);
+      setRejectReason('');
+      setShowRejectForm(false);
       fetchData();
       loadSummary();
     } catch (err: any) {
@@ -212,54 +251,29 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
   };
 
   /* ------------------------------------------------------------------ */
-  /* KPI Cards data                                                       */
+  /* KPI Cards                                                            */
   /* ------------------------------------------------------------------ */
   const kpiCards = [
     {
-      key: 'payments',
-      label: 'Pagos Pendientes',
-      value: summary?.pendingPaymentsCount ?? '—',
-      icon: CreditCard,
-      tab: 'orders' as const,
-      accent: '#F2412C',
-      bg: 'bg-[#F2412C]/10',
-      border: 'border-[#F2412C]/20',
-      iconColor: 'text-[#F2412C]',
+      key: 'payments', label: 'Pagos Pendientes',
+      value: summary?.pendingPaymentsCount ?? '—', icon: CreditCard,
+      tab: 'orders' as const, bg: 'bg-[#F2412C]/10', border: 'border-[#F2412C]/20', iconColor: 'text-[#F2412C]',
     },
     {
-      key: 'videos',
-      label: 'Videos por Aprobar',
-      value: summary?.pendingVideosCount ?? '—',
-      icon: Video,
-      tab: 'videos' as const,
-      accent: '#2B2D33',
-      bg: 'bg-[#2B2D33]/10',
-      border: 'border-[#2B2D33]/20',
-      iconColor: 'text-[#2B2D33]',
+      key: 'videos', label: 'Videos por Aprobar',
+      value: summary?.pendingVideosCount ?? '—', icon: Video,
+      tab: 'videos' as const, bg: 'bg-[#2B2D33]/10', border: 'border-[#2B2D33]/20', iconColor: 'text-[#2B2D33]',
     },
     {
-      key: 'students',
-      label: 'Estudiantes Inscritos',
-      value: summary?.enrolledStudentsCount ?? '—',
-      icon: Users,
-      tab: 'students' as const,
-      accent: '#16a34a',
-      bg: 'bg-emerald-50',
-      border: 'border-emerald-200',
-      iconColor: 'text-emerald-700',
+      key: 'students', label: 'Estudiantes Inscritos',
+      value: summary?.enrolledStudentsCount ?? '—', icon: Users,
+      tab: 'students' as const, bg: 'bg-emerald-50', border: 'border-emerald-200', iconColor: 'text-emerald-700',
     },
     {
-      key: 'revenue',
-      label: 'Ingresos del Mes',
-      value: summary
-        ? `${Number(summary.monthlyRevenueBob).toLocaleString('es-BO', { minimumFractionDigits: 2 })} BOB`
-        : '—',
-      icon: TrendingUp,
-      tab: 'orders' as const,
-      accent: '#F2412C',
-      bg: 'bg-[#F2412C]/5',
-      border: 'border-[#F2412C]/15',
-      iconColor: 'text-[#F2412C]',
+      key: 'revenue', label: 'Ingresos del Mes',
+      value: summary ? `${Number(summary.monthlyRevenueBob).toLocaleString('es-BO', { minimumFractionDigits: 2 })} BOB` : '—',
+      icon: TrendingUp, tab: 'orders' as const,
+      bg: 'bg-[#F2412C]/5', border: 'border-[#F2412C]/15', iconColor: 'text-[#F2412C]',
     },
   ];
 
@@ -271,8 +285,24 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
   ] as const;
 
   /* ------------------------------------------------------------------ */
-  /* Render                                                               */
+  /* Helpers de UI                                                        */
   /* ------------------------------------------------------------------ */
+  const statusLabel = (s: Order['status']) =>
+    s === 'pending' ? 'Pendiente' : s === 'paid' ? 'Pagado' : s === 'failed' ? 'Rechazado' : s.toUpperCase();
+
+  const statusClasses = (s: Order['status']) =>
+    s === 'paid'
+      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+      : s === 'pending'
+      ? 'bg-amber-50 text-amber-700 border-amber-200'
+      : 'bg-rose-50 text-rose-700 border-rose-200';
+
+  const dotClasses = (s: Order['status']) =>
+    s === 'paid' ? 'bg-emerald-500' : s === 'pending' ? 'bg-amber-500' : 'bg-rose-500';
+
+  /* ================================================================== */
+  /* RENDER                                                               */
+  /* ================================================================== */
   return (
     <div className="space-y-6">
 
@@ -286,16 +316,13 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
-          {/* Tabs Selector */}
           <div className="bg-[#E4E6EA] p-1 rounded-2xl flex items-center gap-1 flex-wrap">
             {tabs.map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
                 onClick={() => setActiveTab(key)}
                 className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-                  activeTab === key
-                    ? 'bg-white text-[#2B2D33] shadow-sm'
-                    : 'text-[#636870] hover:text-[#2B2D33]'
+                  activeTab === key ? 'bg-white text-[#2B2D33] shadow-sm' : 'text-[#636870] hover:text-[#2B2D33]'
                 }`}
               >
                 <Icon className={`w-4 h-4 ${activeTab === key ? 'text-[#F2412C]' : ''}`} />
@@ -323,13 +350,11 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
 
       {/* Alertas */}
       {actionMsg && (
-        <div
-          className={`p-4 rounded-2xl border text-sm font-semibold flex items-center justify-between ${
-            actionMsg.type === 'success'
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-              : 'bg-rose-50 border-rose-200 text-rose-800'
-          }`}
-        >
+        <div className={`p-4 rounded-2xl border text-sm font-semibold flex items-center justify-between ${
+          actionMsg.type === 'success'
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+            : 'bg-rose-50 border-rose-200 text-rose-800'
+        }`}>
           <span>{actionMsg.text}</span>
           <button onClick={() => setActionMsg(null)} className="text-xs font-bold underline ml-4 cursor-pointer">
             Cerrar
@@ -352,7 +377,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                   className={`group text-left p-6 bg-white rounded-3xl border ${card.border} shadow-sm hover:shadow-md transition-all cursor-pointer`}
                 >
                   <div className="flex items-center justify-between mb-4">
-                    <div className={`w-11 h-11 rounded-2xl ${card.bg} ${card.border} border flex items-center justify-center`}>
+                    <div className={`w-11 h-11 rounded-2xl ${card.bg} border ${card.border} flex items-center justify-center`}>
                       <Icon className={`w-5 h-5 ${card.iconColor}`} />
                     </div>
                     <ArrowRight className="w-4 h-4 text-[#9EA3AC] group-hover:text-[#F2412C] transition-colors" />
@@ -364,40 +389,26 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
             })}
           </div>
 
-          {/* Accesos rápidos */}
           <div className="bg-white rounded-3xl border border-[#D1D5DB] p-6 shadow-sm">
             <h2 className="text-base font-black text-[#2B2D33] mb-4">Accesos Rápidos</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <button
-                onClick={() => setActiveTab('orders')}
-                className="flex items-center gap-3 p-4 rounded-2xl bg-[#E4E6EA] hover:bg-[#D1D5DB] text-left transition cursor-pointer"
-              >
-                <CreditCard className="w-5 h-5 text-[#F2412C] shrink-0" />
-                <div>
-                  <p className="text-xs font-bold text-[#2B2D33]">Gestionar Pagos</p>
-                  <p className="text-[11px] text-[#636870]">Aprobar órdenes pendientes</p>
-                </div>
-              </button>
-              <button
-                onClick={() => setActiveTab('videos')}
-                className="flex items-center gap-3 p-4 rounded-2xl bg-[#E4E6EA] hover:bg-[#D1D5DB] text-left transition cursor-pointer"
-              >
-                <Video className="w-5 h-5 text-[#F2412C] shrink-0" />
-                <div>
-                  <p className="text-xs font-bold text-[#2B2D33]">Revisar Videos</p>
-                  <p className="text-[11px] text-[#636870]">Aprobar o rechazar videos</p>
-                </div>
-              </button>
-              <button
-                onClick={() => setActiveTab('students')}
-                className="flex items-center gap-3 p-4 rounded-2xl bg-[#E4E6EA] hover:bg-[#D1D5DB] text-left transition cursor-pointer"
-              >
-                <Users className="w-5 h-5 text-[#F2412C] shrink-0" />
-                <div>
-                  <p className="text-xs font-bold text-[#2B2D33]">Ver Estudiantes</p>
-                  <p className="text-[11px] text-[#636870]">Lista de inscripciones activas</p>
-                </div>
-              </button>
+              {[
+                { tab: 'orders' as const, icon: CreditCard, title: 'Gestionar Pagos', desc: 'Aprobar o rechazar órdenes' },
+                { tab: 'videos' as const, icon: Video, title: 'Revisar Videos', desc: 'Aprobar o rechazar videos' },
+                { tab: 'students' as const, icon: Users, title: 'Ver Estudiantes', desc: 'Lista de inscripciones activas' },
+              ].map(({ tab, icon: Icon, title, desc }) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className="flex items-center gap-3 p-4 rounded-2xl bg-[#E4E6EA] hover:bg-[#D1D5DB] text-left transition cursor-pointer"
+                >
+                  <Icon className="w-5 h-5 text-[#F2412C] shrink-0" />
+                  <div>
+                    <p className="text-xs font-bold text-[#2B2D33]">{title}</p>
+                    <p className="text-[11px] text-[#636870]">{desc}</p>
+                  </div>
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -408,86 +419,94 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
       {/* ============================================================ */}
       {activeTab === 'orders' && (
         <div className="bg-white rounded-[2rem] border border-[#D1D5DB] p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
+
+          {/* Encabezado + filtros */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
-              <h2 className="text-lg font-black text-[#2B2D33]">Órdenes de Compra Registradas</h2>
+              <h2 className="text-lg font-black text-[#2B2D33]">Cola de Pagos</h2>
               <p className="text-xs font-medium text-[#9EA3AC] mt-0.5">
-                Valida transferencias manuales (QR / depósitos) y activa inscripciones
+                Haz clic en una fila para ver el detalle, comprobante y gestionar la orden
               </p>
             </div>
-            <span className="text-xs font-bold bg-[#E4E6EA] text-[#50545C] px-3 py-1 rounded-full">
-              {orders.length} órdenes
-            </span>
+            <div className="flex items-center gap-1 bg-[#E4E6EA] p-1 rounded-2xl flex-wrap">
+              {(
+                [
+                  { key: 'all', label: 'Todos' },
+                  { key: 'pending', label: 'Pendiente' },
+                  { key: 'paid', label: 'Pagado' },
+                  { key: 'failed', label: 'Rechazado' },
+                ] as const
+              ).map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setOrderFilter(key)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                    orderFilter === key ? 'bg-white text-[#2B2D33] shadow-sm' : 'text-[#636870] hover:text-[#2B2D33]'
+                  }`}
+                >
+                  {label}
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
+                    orderFilter === key ? 'bg-[#F2412C] text-white' : 'bg-[#D1D5DB] text-[#636870]'
+                  }`}>
+                    {orderCounts[key]}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
 
+          {/* Tabla */}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-[#E4E6EA] text-[#9EA3AC] uppercase tracking-wider font-bold">
                   <th className="pb-3 px-3">ID</th>
-                  <th className="pb-3 px-3">Usuario ID</th>
-                  <th className="pb-3 px-3">Curso ID</th>
+                  <th className="pb-3 px-3">Estudiante</th>
+                  <th className="pb-3 px-3">Curso</th>
                   <th className="pb-3 px-3">Monto</th>
                   <th className="pb-3 px-3">Estado</th>
-                  <th className="pb-3 px-3">Comprobante</th>
                   <th className="pb-3 px-3">Fecha</th>
-                  <th className="pb-3 px-3 text-right">Acción</th>
+                  <th className="pb-3 px-3 text-center">
+                    <Filter className="w-3.5 h-3.5 inline" />
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E4E6EA] font-medium text-[#2B2D33]">
                 {loading ? (
+                  <tr><td colSpan={7} className="py-8 text-center text-[#9EA3AC]">Cargando...</td></tr>
+                ) : filteredOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-[#9EA3AC]">Cargando...</td>
-                  </tr>
-                ) : orders.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="py-8 text-center text-[#9EA3AC]">No hay órdenes de compra registradas.</td>
+                    <td colSpan={7} className="py-8 text-center text-[#9EA3AC]">
+                      No hay órdenes {orderFilter !== 'all' ? `con estado "${orderFilter}"` : 'registradas'}.
+                    </td>
                   </tr>
                 ) : (
-                  orders.map((ord) => (
-                    <tr key={ord.id} className="hover:bg-[#E4E6EA]/40 transition">
+                  filteredOrders.map((ord) => (
+                    <tr
+                      key={ord.id}
+                      onClick={() => { setSelectedOrder(ord); setShowRejectForm(false); setRejectReason(''); }}
+                      className="hover:bg-[#E4E6EA]/40 transition cursor-pointer group"
+                    >
                       <td className="py-4 px-3 font-bold text-[#2B2D33]">#{ord.id}</td>
-                      <td className="py-4 px-3">Usuario #{ord.userId}</td>
-                      <td className="py-4 px-3">Curso #{ord.courseId}</td>
+                      <td className="py-4 px-3">
+                        <p className="font-bold text-[#2B2D33]">{ord.student_name ?? `Usuario #${ord.user_id}`}</p>
+                        {ord.student_email && (
+                          <p className="text-[11px] text-[#9EA3AC]">{ord.student_email}</p>
+                        )}
+                      </td>
+                      <td className="py-4 px-3">{ord.course_title ?? `Curso #${ord.course_id}`}</td>
                       <td className="py-4 px-3 font-bold text-[#2B2D33]">{ord.amount} {ord.currency}</td>
                       <td className="py-4 px-3">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-bold text-[11px] ${
-                          ord.status === 'paid'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : ord.status === 'pending'
-                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                            : 'bg-rose-50 text-rose-700 border border-rose-200'
-                        }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${
-                            ord.status === 'paid' ? 'bg-emerald-500' : ord.status === 'pending' ? 'bg-amber-500' : 'bg-rose-500'
-                          }`}></span>
-                          {ord.status.toUpperCase()}
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-bold text-[11px] border ${statusClasses(ord.status)}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${dotClasses(ord.status)}`} />
+                          {statusLabel(ord.status)}
                         </span>
                       </td>
-                      <td className="py-4 px-3">
-                        {ord.receiptUrl ? (
-                          <button
-                            onClick={() => setPreviewReceipt(ord.receiptUrl!)}
-                            className="inline-flex items-center gap-1 text-[#F2412C] hover:underline font-bold cursor-pointer"
-                          >
-                            <Eye className="w-3.5 h-3.5" /> Ver Recibo
-                          </button>
-                        ) : (
-                          <span className="text-[#9EA3AC] italic">Sin archivo</span>
-                        )}
+                      <td className="py-4 px-3 text-[#9EA3AC]">
+                        {new Date(ord.created_at).toLocaleDateString('es-BO')}
                       </td>
-                      <td className="py-4 px-3 text-[#9EA3AC]">{new Date(ord.createdAt).toLocaleDateString()}</td>
-                      <td className="py-4 px-3 text-right">
-                        {ord.status === 'pending' ? (
-                          <button
-                            onClick={() => handleConfirmOrder(ord.id)}
-                            className="px-3.5 py-1.5 bg-[#F2412C] hover:bg-[#d4321e] text-white rounded-xl font-bold text-xs shadow-sm transition inline-flex items-center gap-1 cursor-pointer"
-                          >
-                            <Check className="w-3.5 h-3.5 stroke-[3]" /> Aprobar Pago
-                          </button>
-                        ) : (
-                          <span className="text-[#9EA3AC] font-semibold text-[11px]">Procesado</span>
-                        )}
+                      <td className="py-4 px-3 text-center">
+                        <Eye className="w-4 h-4 text-[#9EA3AC] group-hover:text-[#F2412C] transition-colors" />
                       </td>
                     </tr>
                   ))
@@ -530,13 +549,9 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
               </thead>
               <tbody className="divide-y divide-[#E4E6EA] font-medium text-[#2B2D33]">
                 {loading ? (
-                  <tr>
-                    <td colSpan={7} className="py-8 text-center text-[#9EA3AC]">Cargando...</td>
-                  </tr>
+                  <tr><td colSpan={7} className="py-8 text-center text-[#9EA3AC]">Cargando...</td></tr>
                 ) : videos.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="py-8 text-center text-[#9EA3AC]">No hay videos registrados.</td>
-                  </tr>
+                  <tr><td colSpan={7} className="py-8 text-center text-[#9EA3AC]">No hay videos registrados.</td></tr>
                 ) : (
                   videos.map((vid) => (
                     <tr key={vid.id} className="hover:bg-[#E4E6EA]/40 transition">
@@ -544,7 +559,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                       <td className="py-4 px-3 font-bold text-[#2B2D33]">
                         {vid.title}
                         {vid.rejectionReason && (
-                          <p className="text-[11px] font-normal text-rose-600 mt-0.5">Motivo rechazo: {vid.rejectionReason}</p>
+                          <p className="text-[11px] font-normal text-rose-600 mt-0.5">Motivo: {vid.rejectionReason}</p>
                         )}
                       </td>
                       <td className="py-4 px-3">
@@ -563,16 +578,18 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                       <td className="py-4 px-3">{Math.floor(vid.durationSeconds / 60)}m {vid.durationSeconds % 60}s</td>
                       <td className="py-4 px-3">Docente #{vid.uploadedBy}</td>
                       <td className="py-4 px-3">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-bold text-[11px] ${
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-bold text-[11px] border ${
                           vid.status === 'approved'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                             : vid.status === 'pending'
-                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                            : 'bg-rose-50 text-rose-700 border border-rose-200'
+                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                            : 'bg-rose-50 text-rose-700 border-rose-200'
                         }`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${
-                            vid.status === 'approved' ? 'bg-emerald-500' : vid.status === 'pending' ? 'bg-amber-500' : 'bg-rose-500'
-                          }`}></span>
+                            vid.status === 'approved' ? 'bg-emerald-500'
+                            : vid.status === 'pending' ? 'bg-amber-500'
+                            : 'bg-rose-500'
+                          }`} />
                           {vid.status.toUpperCase()}
                         </span>
                       </td>
@@ -613,9 +630,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-lg font-black text-[#2B2D33]">Estudiantes Inscritos</h2>
-              <p className="text-xs font-medium text-[#9EA3AC] mt-0.5">
-                Inscripciones activas y completadas en la plataforma
-              </p>
+              <p className="text-xs font-medium text-[#9EA3AC] mt-0.5">Inscripciones activas y completadas</p>
             </div>
             <span className="text-xs font-bold bg-[#E4E6EA] text-[#50545C] px-3 py-1 rounded-full">
               {students.length} inscripciones
@@ -636,13 +651,9 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
               </thead>
               <tbody className="divide-y divide-[#E4E6EA] font-medium text-[#2B2D33]">
                 {loading ? (
-                  <tr>
-                    <td colSpan={6} className="py-8 text-center text-[#9EA3AC]">Cargando...</td>
-                  </tr>
+                  <tr><td colSpan={6} className="py-8 text-center text-[#9EA3AC]">Cargando...</td></tr>
                 ) : students.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-8 text-center text-[#9EA3AC]">No hay estudiantes inscritos.</td>
-                  </tr>
+                  <tr><td colSpan={6} className="py-8 text-center text-[#9EA3AC]">No hay estudiantes inscritos.</td></tr>
                 ) : (
                   students.map((s) => (
                     <tr key={s.enrollmentId} className="hover:bg-[#E4E6EA]/40 transition">
@@ -651,20 +662,22 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                       <td className="py-4 px-3 text-[#636870]">{s.studentEmail}</td>
                       <td className="py-4 px-3">{s.courseTitle}</td>
                       <td className="py-4 px-3">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-bold text-[11px] ${
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-bold text-[11px] border ${
                           s.status === 'completed'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                             : s.status === 'active'
-                            ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                            : 'bg-rose-50 text-rose-700 border border-rose-200'
+                            ? 'bg-blue-50 text-blue-700 border-blue-200'
+                            : 'bg-rose-50 text-rose-700 border-rose-200'
                         }`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${
-                            s.status === 'completed' ? 'bg-emerald-500' : s.status === 'active' ? 'bg-blue-500' : 'bg-rose-500'
-                          }`}></span>
+                            s.status === 'completed' ? 'bg-emerald-500'
+                            : s.status === 'active' ? 'bg-blue-500'
+                            : 'bg-rose-500'
+                          }`} />
                           {s.status.toUpperCase()}
                         </span>
                       </td>
-                      <td className="py-4 px-3 text-[#9EA3AC]">{new Date(s.enrolledAt).toLocaleDateString()}</td>
+                      <td className="py-4 px-3 text-[#9EA3AC]">{new Date(s.enrolledAt).toLocaleDateString('es-BO')}</td>
                     </tr>
                   ))
                 )}
@@ -675,10 +688,159 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
       )}
 
       {/* ============================================================ */}
+      {/* MODAL DETALLE DE ORDEN                                        */}
+      {/* ============================================================ */}
+      {selectedOrder && (
+        <div className="fixed inset-0 bg-[#2B2D33]/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl border border-[#D1D5DB] p-6 max-w-lg w-full shadow-2xl space-y-5">
+
+            {/* Cabecera modal */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-black text-[#2B2D33]">Orden #{selectedOrder.id}</h3>
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-bold text-[11px] border mt-1 ${statusClasses(selectedOrder.status)}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${dotClasses(selectedOrder.status)}`} />
+                  {statusLabel(selectedOrder.status)}
+                </span>
+              </div>
+              <button
+                onClick={() => { setSelectedOrder(null); setShowRejectForm(false); setRejectReason(''); }}
+                className="p-2 rounded-xl hover:bg-[#E4E6EA] transition cursor-pointer text-[#636870]"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Datos estudiante y curso */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-4 bg-[#E4E6EA] rounded-2xl">
+                <div className="flex items-center gap-2 mb-2">
+                  <User className="w-4 h-4 text-[#F2412C]" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#636870]">Estudiante</span>
+                </div>
+                <p className="text-sm font-bold text-[#2B2D33]">{selectedOrder.student_name ?? `ID #${selectedOrder.user_id}`}</p>
+                {selectedOrder.student_email && (
+                  <p className="text-[11px] text-[#636870] mt-0.5">{selectedOrder.student_email}</p>
+                )}
+              </div>
+              <div className="p-4 bg-[#E4E6EA] rounded-2xl">
+                <div className="flex items-center gap-2 mb-2">
+                  <BookOpen className="w-4 h-4 text-[#F2412C]" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#636870]">Curso</span>
+                </div>
+                <p className="text-sm font-bold text-[#2B2D33]">{selectedOrder.course_title ?? `ID #${selectedOrder.course_id}`}</p>
+              </div>
+            </div>
+
+            {/* Monto y fecha */}
+            <div className="flex items-center gap-4 p-4 bg-[#E4E6EA] rounded-2xl">
+              <div className="flex-1">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#636870] mb-1">Monto</p>
+                <p className="text-2xl font-black text-[#2B2D33]">{selectedOrder.amount} {selectedOrder.currency}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#636870] mb-1">Fecha</p>
+                <p className="text-sm font-semibold text-[#2B2D33]">
+                  {new Date(selectedOrder.created_at).toLocaleDateString('es-BO', { year: 'numeric', month: 'long', day: 'numeric' })}
+                </p>
+              </div>
+            </div>
+
+            {/* Comprobante */}
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <FileText className="w-4 h-4 text-[#636870]" />
+                <span className="text-xs font-bold text-[#636870] uppercase tracking-wider">Comprobante</span>
+              </div>
+              {selectedOrder.receipt_url ? (
+                <div className="p-3 bg-[#E4E6EA] rounded-xl border border-[#D1D5DB]">
+                  <p className="text-xs font-mono text-[#50545C] break-all mb-2">{selectedOrder.receipt_url}</p>
+                  <a
+                    href={selectedOrder.receipt_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#F2412C] hover:underline"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> Abrir comprobante
+                  </a>
+                </div>
+              ) : (
+                <div className="p-3 bg-[#E4E6EA] rounded-xl border border-[#D1D5DB] flex items-center gap-2 text-[#9EA3AC]">
+                  <AlertCircle className="w-4 h-4" />
+                  <span className="text-xs">Sin comprobante adjunto</span>
+                </div>
+              )}
+            </div>
+
+            {/* Acciones (solo si está pendiente) */}
+            {selectedOrder.status === 'pending' && !showRejectForm && (
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  onClick={() => handleConfirmOrder(selectedOrder.id)}
+                  className="flex-1 py-2.5 bg-[#F2412C] hover:bg-[#d4321e] text-white rounded-2xl font-bold text-sm transition inline-flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Check className="w-4 h-4 stroke-[3]" /> Aprobar Pago
+                </button>
+                <button
+                  onClick={() => setShowRejectForm(true)}
+                  className="flex-1 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-2xl font-bold text-sm transition inline-flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <X className="w-4 h-4" /> Rechazar Orden
+                </button>
+              </div>
+            )}
+
+            {/* Formulario de rechazo */}
+            {selectedOrder.status === 'pending' && showRejectForm && (
+              <div className="space-y-3 pt-2">
+                <div>
+                  <label className="text-xs font-bold text-[#2B2D33] block mb-1.5">
+                    Motivo del rechazo <span className="text-[#F2412C]">*</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    placeholder="Ej. El comprobante no corresponde al monto, imagen ilegible..."
+                    className="w-full p-3 rounded-2xl bg-[#E4E6EA] border border-[#D1D5DB] text-xs font-medium focus:outline-none focus:border-[#F2412C] resize-none"
+                  />
+                  {rejectReason.trim().length > 0 && rejectReason.trim().length < 5 && (
+                    <p className="text-[11px] text-[#F2412C] mt-1">Mínimo 5 caracteres</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => { setShowRejectForm(false); setRejectReason(''); }}
+                    className="flex-1 py-2 rounded-2xl text-xs font-bold text-[#636870] hover:bg-[#E4E6EA] transition cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleRejectOrder}
+                    disabled={rejectReason.trim().length < 5}
+                    className="flex-1 py-2 rounded-2xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white disabled:opacity-50 cursor-pointer transition"
+                  >
+                    Confirmar Rechazo
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Si no es pendiente */}
+            {selectedOrder.status !== 'pending' && (
+              <p className="text-center text-xs text-[#9EA3AC] italic pt-2">
+                Esta orden ya fue procesada y no puede modificarse.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
       {/* MODAL APROBAR VIDEO                                           */}
       {/* ============================================================ */}
       {approvingVideo && (
-        <div className="fixed inset-0 bg-[#2B2D33]/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-[#2B2D33]/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-[#2B2D33] rounded-3xl border border-[#40444B] p-6 max-w-md w-full shadow-2xl space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
@@ -742,7 +904,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
       {/* MODAL RECHAZAR VIDEO                                          */}
       {/* ============================================================ */}
       {rejectingVideoId && (
-        <div className="fixed inset-0 bg-[#2B2D33]/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-[#2B2D33]/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-3xl border border-[#D1D5DB] p-8 max-w-md w-full shadow-2xl">
             <h3 className="text-lg font-black text-[#2B2D33]">Motivo del Rechazo</h3>
             <p className="text-xs text-[#636870] mt-1">
@@ -769,26 +931,6 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                 Confirmar Rechazo
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ============================================================ */}
-      {/* MODAL COMPROBANTE                                             */}
-      {/* ============================================================ */}
-      {previewReceipt && (
-        <div className="fixed inset-0 bg-[#2B2D33]/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl border border-[#D1D5DB] p-6 max-w-lg w-full shadow-2xl text-center">
-            <h3 className="text-base font-black text-[#2B2D33] mb-2">Comprobante de Pago</h3>
-            <div className="p-4 bg-[#E4E6EA] rounded-2xl border border-[#D1D5DB] mb-4">
-              <p className="text-xs font-mono text-[#50545C] break-all">{previewReceipt}</p>
-            </div>
-            <button
-              onClick={() => setPreviewReceipt(null)}
-              className="px-6 py-2 rounded-xl bg-[#2B2D33] text-white text-xs font-bold cursor-pointer"
-            >
-              Cerrar
-            </button>
           </div>
         </div>
       )}

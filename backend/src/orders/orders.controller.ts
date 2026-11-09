@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Param,
   Body,
   UseGuards,
@@ -20,6 +21,8 @@ import {
   webhookPaymentSchema,
   AdminEnrollDto,
   adminEnrollSchema,
+  RejectOrderDto,
+  rejectOrderSchema,
 } from './dto/order.dto';
 import { SessionGuard } from '../auth/guards/session.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -97,7 +100,26 @@ export class OrdersController {
     return this.ordersService.findAllOrdersAdmin();
   }
 
-  // 6. Webhook desactivado: pendiente de firma HMAC y pasarela
+  // 6. Rechazar orden pendiente (Admin / Superadmin)
+  @Patch(':id/reject')
+  @UseGuards(SessionGuard, RolesGuard)
+  @Roles('admin', 'superadmin')
+  async rejectOrder(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: unknown,
+    @CurrentUser() admin: User,
+  ) {
+    const parseResult = rejectOrderSchema.safeParse(body);
+    if (!parseResult.success) {
+      throw new BadRequestException({
+        message: 'Datos de rechazo inválidos',
+        errors: parseResult.error.format(),
+      });
+    }
+    return this.ordersService.rejectOrder(id, admin.id, parseResult.data);
+  }
+
+  // 7. Webhook desactivado: pendiente de firma HMAC y pasarela
   @Post('webhook')
   async handleWebhook() {
     // pendiente de firma HMAC y pasarela

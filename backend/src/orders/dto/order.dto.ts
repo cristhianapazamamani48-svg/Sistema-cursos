@@ -26,3 +26,8 @@ export const adminEnrollSchema = z.object({
   courseId: z.coerce.number().positive(),
 });
 export type AdminEnrollDto = z.infer<typeof adminEnrollSchema>;
+
+export const rejectOrderSchema = z.object({
+  reason: z.string().min(5, 'El motivo debe tener al menos 5 caracteres'),
+});
+export type RejectOrderDto = z.infer<typeof rejectOrderSchema>;

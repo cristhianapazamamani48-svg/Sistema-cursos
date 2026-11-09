@@ -7,13 +7,14 @@ import {
 } from '@nestjs/common';
 import { Pool } from 'pg';
 import { PG_POOL, DRIZZLE_DB, DrizzleDb } from '../database/database.provider';
-import { orders, transactions, enrollments, courses, auditLogs } from '../database/schema';
+import { orders, enrollments, courses } from '../database/schema';
 import { eq, and } from 'drizzle-orm';
 import {
   CreateOrderDto,
   ConfirmManualPaymentDto,
   WebhookPaymentDto,
   AdminEnrollDto,
+  RejectOrderDto,
 } from './dto/order.dto';
 
 @Injectable()
@@ -25,10 +26,6 @@ export class OrdersService {
 
   /**
    * 1. Crear una orden de compra
-   * Regla de negocio:
-   * - Acceso vitalicio: Un estudiante no puede comprar dos veces el mismo curso (si ya tiene inscripción activa o completada).
-   * - El monto se congela al crear la orden (orders.amount).
-   * - Cursos gratis (price = 0): La orden se crea y se marca paid automáticamente, activando la inscripción en el mismo flujo.
    */
   async createOrder(userId: number, dto: CreateOrderDto) {
     const [course] = await this.db
@@ -45,7 +42,6 @@ export class OrdersService {
       throw new BadRequestException('El curso no está disponible para compra');
     }
 
-    // Verificar si el estudiante ya tiene una inscripción activa o completada
     const [existingEnrollment] = await this.db
       .select()
       .from(enrollments)
@@ -56,7 +52,6 @@ export class OrdersService {
       throw new ConflictException('Ya tienes acceso a este curso');
     }
 
-    // Verificar si ya existe una orden pendiente para este curso
     const [existingOrder] = await this.db
       .select()
       .from(orders)
@@ -82,7 +77,6 @@ export class OrdersService {
     try {
       await client.query('BEGIN');
 
-      // Crear la orden con amount congelado
       const orderInsertRes = await client.query(
         `INSERT INTO orders (user_id, course_id, amount, currency, status)
          VALUES ($1, $2, $3, $4, $5)
@@ -91,7 +85,6 @@ export class OrdersService {
       );
       const newOrder = orderInsertRes.rows[0];
 
-      // Si el curso es gratuito (amount = 0), activar inscripción inmediatamente con Consulta E
       if (priceNum === 0) {
         await this.executeEnrollmentUpsert(client, userId, dto.courseId, newOrder.id, null);
       }
@@ -110,7 +103,8 @@ export class OrdersService {
   }
 
   /**
-   * 2. Confirmación de pago manual por un Admin (transferencia bancaria / QR Simple con comprobante)
+   * 2. Confirmación de pago manual por un Admin
+   * Solo se puede confirmar órdenes en estado 'pending'.
    */
   async confirmManualPayment(orderId: number, adminId: number, dto: ConfirmManualPaymentDto) {
     const client = await this.pool.connect();
@@ -128,25 +122,26 @@ export class OrdersService {
       }
 
       const order = orderRes.rows[0];
-      if (order.status === 'paid') {
-        throw new BadRequestException('Esta orden ya fue pagada');
+
+      if (order.status !== 'pending') {
+        throw new BadRequestException(
+          `Solo se pueden aprobar órdenes pendientes. Esta orden está en estado '${order.status}'`,
+        );
       }
 
       const now = new Date();
 
-      // 1. Marcar orden como paid
       await client.query(
         `UPDATE orders
-            SET status = 'paid',
+            SET status       = 'paid',
                 confirmed_by = $1,
                 confirmed_at = $2,
-                receipt_url = $3,
-                updated_at = $2
+                receipt_url  = $3,
+                updated_at   = $2
           WHERE id = $4;`,
         [adminId, now, dto.receiptUrl || null, orderId],
       );
 
-      // 2. Ejecutar Consulta E para crear o reactivar la inscripción
       const enrollmentId = await this.executeEnrollmentUpsert(
         client,
         order.user_id,
@@ -155,7 +150,6 @@ export class OrdersService {
         null,
       );
 
-      // 3. Auditoría en audit_logs
       await client.query(
         `INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, metadata, created_at)
          VALUES ($1, $2, $3, $4, $5, $6);`,
@@ -184,8 +178,58 @@ export class OrdersService {
   }
 
   /**
-   * 3. Webhook de Pasarela de Pagos (Idempotente)
-   * Usa índice único transactions_provider_ref_unique para evitar procesar cobros dobles.
+   * 3. Rechazar una orden pendiente (marca como 'failed')
+   */
+  async rejectOrder(orderId: number, adminId: number, dto: RejectOrderDto) {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const orderRes = await client.query(
+        `SELECT id, status FROM orders WHERE id = $1 FOR UPDATE;`,
+        [orderId],
+      );
+
+      if (orderRes.rowCount === 0) {
+        throw new NotFoundException(`Orden #${orderId} no encontrada`);
+      }
+
+      const order = orderRes.rows[0];
+
+      if (order.status !== 'pending') {
+        throw new BadRequestException(
+          `Solo se pueden rechazar órdenes pendientes. Esta orden está en estado '${order.status}'`,
+        );
+      }
+
+      await client.query(
+        `UPDATE orders
+            SET status       = 'failed',
+                confirmed_by = $1,
+                confirmed_at = now(),
+                updated_at   = now()
+          WHERE id = $2;`,
+        [adminId, orderId],
+      );
+
+      await client.query(
+        `INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, metadata, created_at)
+         VALUES ($1, $2, $3, $4, $5, now());`,
+        [adminId, 'order.rejected', 'orders', orderId, JSON.stringify({ reason: dto.reason })],
+      );
+
+      await client.query('COMMIT');
+      return { message: 'Orden rechazada correctamente', orderId };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * 4. Webhook de Pasarela de Pagos (Idempotente)
    */
   async handlePaymentWebhook(dto: WebhookPaymentDto) {
     const client = await this.pool.connect();
@@ -193,7 +237,6 @@ export class OrdersService {
     try {
       await client.query('BEGIN');
 
-      // 1. Registrar la transacción con control de idempotencia
       let txId: number | null = null;
       try {
         const txRes = await client.query(
@@ -210,7 +253,6 @@ export class OrdersService {
           ],
         );
         if (txRes.rowCount === 0) {
-          // Idempotencia: Transacción ya procesada previamente
           await client.query('ROLLBACK');
           return { status: 'already_processed', message: 'Notificación ya procesada con anterioridad' };
         }
@@ -220,13 +262,11 @@ export class OrdersService {
         throw err;
       }
 
-      // Si la transacción no fue exitosa, no activamos inscripción
       if (dto.status !== 'completed') {
         await client.query('COMMIT');
         return { status: 'failed', message: 'Transacción registrada como fallida' };
       }
 
-      // 2. Buscar la orden para marcarla paid
       const orderRes = await client.query(
         `SELECT id, user_id, course_id, status FROM orders WHERE id = $1 FOR UPDATE;`,
         [dto.orderId],
@@ -238,13 +278,11 @@ export class OrdersService {
 
       const order = orderRes.rows[0];
 
-      // Marcar orden como paid
       await client.query(
         `UPDATE orders SET status = 'paid', updated_at = now() WHERE id = $1;`,
         [dto.orderId],
       );
 
-      // 3. Consulta E: Crear o Reactivar la inscripción
       const enrollmentId = await this.executeEnrollmentUpsert(
         client,
         order.user_id,
@@ -269,8 +307,7 @@ export class OrdersService {
   }
 
   /**
-   * 4. Inscripción manual por Administrador (becas, convenios, etc.)
-   * CHECK: order_id es NULL y enrolled_by tiene el ID del admin.
+   * 5. Inscripción manual por Administrador (becas, convenios, etc.)
    */
   async adminEnrollUser(adminId: number, dto: AdminEnrollDto) {
     const client = await this.pool.connect();
@@ -286,7 +323,6 @@ export class OrdersService {
         adminId,
       );
 
-      // Auditoría
       await client.query(
         `INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, metadata, created_at)
          VALUES ($1, $2, $3, $4, $5, now());`,
@@ -313,11 +349,7 @@ export class OrdersService {
   }
 
   /**
-   * Consulta E del diseño SQL:
-   * INSERT o REACTIVACIÓN de inscripción (Upsert atómico).
-   * Si la fila ya existía y estaba cancelled tras un reembolso, se reactiva.
-   * Si ya tenía completed_at, vuelve como completed; de lo contrario active.
-   * Conserva el enrollment_id, por lo que el progreso no se pierde.
+   * Consulta E: INSERT o REACTIVACIÓN de inscripción (Upsert atómico).
    */
   private async executeEnrollmentUpsert(
     client: any,
@@ -344,7 +376,6 @@ export class OrdersService {
       return res.rows[0].id;
     }
 
-    // Si ya existía activa/completada, devolver su ID actual
     const checkRes = await client.query(
       `SELECT id FROM enrollments WHERE user_id = $1 AND course_id = $2;`,
       [userId, courseId],
@@ -353,13 +384,40 @@ export class OrdersService {
   }
 
   /**
-   * Listar órdenes del usuario o de administración
+   * Listar órdenes del usuario autenticado
    */
   async findUserOrders(userId: number) {
     return this.db.select().from(orders).where(eq(orders.userId, userId));
   }
 
+  /**
+   * Listar todas las órdenes para administración, con datos de estudiante y curso
+   */
   async findAllOrdersAdmin() {
-    return this.db.select().from(orders);
+    const result = await this.pool.query(`
+      SELECT
+        o.id,
+        o.user_id,
+        o.course_id,
+        o.amount,
+        o.currency,
+        o.status,
+        o.receipt_url,
+        o.confirmed_by,
+        o.confirmed_at,
+        o.created_at,
+        u.name        AS student_name,
+        u.email       AS student_email,
+        c.title       AS course_title,
+        c.slug        AS course_slug
+      FROM orders o
+      LEFT JOIN users  u ON u.id = o.user_id
+      LEFT JOIN courses c ON c.id = o.course_id
+      ORDER BY
+        CASE o.status WHEN 'pending' THEN 0 ELSE 1 END,
+        o.created_at DESC
+      LIMIT 200;
+    `);
+    return result.rows;
   }
 }
