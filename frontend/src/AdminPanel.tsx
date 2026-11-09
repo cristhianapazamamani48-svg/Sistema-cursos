@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { 
   CreditCard, 
   Video, 
@@ -156,7 +156,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
       <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-xl shadow-slate-200/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-extrabold uppercase tracking-wider bg-blue-50 text-blue-600 border border-blue-200 px-2.5 py-0.5 rounded-full">
+            <span className="text-[11px] font-extrabold uppercase tracking-wider bg-blue-50 text-[#F2412C] border border-blue-200 px-2.5 py-0.5 rounded-full">
               Panel Administrativo
             </span>
           </div>
@@ -171,10 +171,10 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
               className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
                 activeTab === 'orders'
                   ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-900'
+                  : 'text-[#636870] hover:text-[#1A1C20]'
               }`}
             >
-              <CreditCard className="w-4 h-4 text-blue-600" />
+              <CreditCard className="w-4 h-4 text-[#F2412C]" />
               <span>Órdenes y Pagos</span>
             </button>
             <button
@@ -182,10 +182,10 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
               className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
                 activeTab === 'videos'
                   ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-900'
+                  : 'text-[#636870] hover:text-[#1A1C20]'
               }`}
             >
-              <Video className="w-4 h-4 text-blue-600" />
+              <Video className="w-4 h-4 text-[#F2412C]" />
               <span>Aprobación de Videos</span>
             </button>
           </div>
@@ -193,14 +193,14 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
           <button
             onClick={fetchData}
             title="Refrescar datos"
-            className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 rounded-2xl transition cursor-pointer"
+            className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-[#50545C] rounded-2xl transition cursor-pointer"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
 
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-2xl text-xs font-bold text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer"
+            className="px-4 py-2 rounded-2xl text-xs font-bold text-[#636870] hover:text-[#1A1C20] hover:bg-slate-100 transition cursor-pointer"
           >
             Volver al Aula
           </button>
@@ -229,11 +229,11 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-lg font-black text-slate-900">Órdenes de Compra Registradas</h2>
-              <p className="text-xs font-medium text-slate-400 mt-0.5">
+              <p className="text-xs font-medium text-[#9EA3AC] mt-0.5">
                 Valida transferencias manuales (QR / depósitos) y activa inscripciones
               </p>
             </div>
-            <span className="text-xs font-bold bg-slate-100 text-slate-600 px-3 py-1 rounded-full">
+            <span className="text-xs font-bold bg-slate-100 text-[#50545C] px-3 py-1 rounded-full">
               {orders.length} órdenes
             </span>
           </div>
@@ -241,7 +241,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-100 text-slate-400 uppercase tracking-wider font-bold">
+                <tr className="border-b border-slate-100 text-[#9EA3AC] uppercase tracking-wider font-bold">
                   <th className="pb-3 px-3">ID</th>
                   <th className="pb-3 px-3">Usuario ID</th>
                   <th className="pb-3 px-3">Curso ID</th>
@@ -255,7 +255,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
               <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
                 {orders.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-slate-400">
+                    <td colSpan={8} className="py-8 text-center text-[#9EA3AC]">
                       No hay órdenes de compra registradas.
                     </td>
                   </tr>
@@ -294,29 +294,29 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                         {ord.receiptUrl ? (
                           <button
                             onClick={() => setPreviewReceipt(ord.receiptUrl!)}
-                            className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 font-bold underline cursor-pointer"
+                            className="inline-flex items-center gap-1 text-[#F2412C] hover:text-blue-800 font-bold underline cursor-pointer"
                           >
                             <Eye className="w-3.5 h-3.5" />
                             Ver Recibo
                           </button>
                         ) : (
-                          <span className="text-slate-400 italic">Sin archivo</span>
+                          <span className="text-[#9EA3AC] italic">Sin archivo</span>
                         )}
                       </td>
-                      <td className="py-4 px-3 text-slate-400">
+                      <td className="py-4 px-3 text-[#9EA3AC]">
                         {new Date(ord.createdAt).toLocaleDateString()}
                       </td>
                       <td className="py-4 px-3 text-right">
                         {ord.status === 'pending' ? (
                           <button
                             onClick={() => handleConfirmOrder(ord.id)}
-                            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-sm transition inline-flex items-center gap-1 cursor-pointer"
+                            className="px-3.5 py-1.5 bg-[#F2412C] hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-sm transition inline-flex items-center gap-1 cursor-pointer"
                           >
                             <Check className="w-3.5 h-3.5 stroke-[3]" />
                             Aprobar Pago
                           </button>
                         ) : (
-                          <span className="text-slate-400 font-semibold text-[11px]">Procesado</span>
+                          <span className="text-[#9EA3AC] font-semibold text-[11px]">Procesado</span>
                         )}
                       </td>
                     </tr>
@@ -334,11 +334,11 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-lg font-black text-slate-900">Videos Subidos por Docentes</h2>
-              <p className="text-xs font-medium text-slate-400 mt-0.5">
+              <p className="text-xs font-medium text-[#9EA3AC] mt-0.5">
                 Flujo de aprobación: Solo videos aprobados pueden publicarse en lecciones
               </p>
             </div>
-            <span className="text-xs font-bold bg-slate-100 text-slate-600 px-3 py-1 rounded-full">
+            <span className="text-xs font-bold bg-slate-100 text-[#50545C] px-3 py-1 rounded-full">
               {videos.length} videos
             </span>
           </div>
@@ -346,7 +346,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-100 text-slate-400 uppercase tracking-wider font-bold">
+                <tr className="border-b border-slate-100 text-[#9EA3AC] uppercase tracking-wider font-bold">
                   <th className="pb-3 px-3">ID</th>
                   <th className="pb-3 px-3">Título</th>
                   <th className="pb-3 px-3">Proveedor / Ref</th>
@@ -359,7 +359,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
               <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
                 {videos.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-slate-400">
+                    <td colSpan={7} className="py-8 text-center text-[#9EA3AC]">
                       No hay videos registrados.
                     </td>
                   </tr>
@@ -376,14 +376,14 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                         )}
                       </td>
                       <td className="py-4 px-3">
-                        <span className="uppercase text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md mr-1.5">
+                        <span className="uppercase text-[10px] font-bold bg-slate-100 text-[#50545C] px-2 py-0.5 rounded-md mr-1.5">
                           {vid.provider}
                         </span>
                         <a
                           href={`https://youtube.com/watch?v=${vid.providerRef}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-blue-600 hover:underline inline-flex items-center gap-1 font-mono text-[11px]"
+                          className="text-[#F2412C] hover:underline inline-flex items-center gap-1 font-mono text-[11px]"
                         >
                           {vid.providerRef} <ExternalLink className="w-3 h-3" />
                         </a>
@@ -431,7 +431,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                             </button>
                           </div>
                         ) : (
-                          <span className="text-slate-400 font-semibold text-[11px]">Revisado</span>
+                          <span className="text-[#9EA3AC] font-semibold text-[11px]">Revisado</span>
                         )}
                       </td>
                     </tr>
@@ -445,10 +445,10 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
 
       {/* MODAL PARA RECHAZAR VIDEO (Exige motivo por constraint rejected_needs_reason) */}
       {rejectingVideoId && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-[#2B2D33]/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-3xl border border-slate-100 p-8 max-w-md w-full shadow-2xl">
             <h3 className="text-lg font-black text-slate-900">Motivo del Rechazo</h3>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-[#636870] mt-1">
               Es obligatorio indicar la razón por la cual este video no es apto (audio bajo, contenido incorrecto, etc.)
             </p>
 
@@ -458,13 +458,13 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
               placeholder="Ej. El audio tiene demasiado ruido o falta la última parte de la lección..."
-              className="w-full mt-4 p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-medium focus:outline-none focus:border-blue-500"
+              className="w-full mt-4 p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-medium focus:outline-none focus:border-[#F2412C]"
             ></textarea>
 
             <div className="mt-6 flex items-center justify-end gap-3">
               <button
                 onClick={() => { setRejectingVideoId(null); setRejectionReason(''); }}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-bold text-[#636870] hover:bg-slate-100 cursor-pointer"
               >
                 Cancelar
               </button>
@@ -482,15 +482,15 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
 
       {/* MODAL PREVISUALIZAR COMPROBANTE */}
       {previewReceipt && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-[#2B2D33]/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-3xl border border-slate-100 p-6 max-w-lg w-full shadow-2xl text-center">
             <h3 className="text-base font-black text-slate-900 mb-2">Comprobante de Pago</h3>
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 mb-4">
-              <p className="text-xs font-mono text-slate-600 break-all">{previewReceipt}</p>
+              <p className="text-xs font-mono text-[#50545C] break-all">{previewReceipt}</p>
             </div>
             <button
               onClick={() => setPreviewReceipt(null)}
-              className="px-6 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold cursor-pointer"
+              className="px-6 py-2 rounded-xl bg-[#2B2D33] text-white text-xs font-bold cursor-pointer"
             >
               Cerrar
             </button>
