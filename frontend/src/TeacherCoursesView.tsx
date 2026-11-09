@@ -47,12 +47,16 @@ interface TeacherCoursesViewProps {
   };
   onViewAsStudent: (slug: string) => void;
   showToast: (type: 'success' | 'error' | 'info', text: string) => void;
+  openCreateTrigger?: number;
+  onWizardStateChange?: (isOpen: boolean) => void;
 }
 
 export default function TeacherCoursesView({
   currentUser,
   onViewAsStudent,
   showToast,
+  openCreateTrigger,
+  onWizardStateChange,
 }: TeacherCoursesViewProps) {
   const [courses, setCourses] = useState<ManagedCourse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,6 +81,21 @@ export default function TeacherCoursesView({
   useEffect(() => {
     loadCourses();
   }, []);
+
+  // Notificar al padre cuando el wizard cambia de estado
+  useEffect(() => {
+    onWizardStateChange?.(isWizardOpen);
+  }, [isWizardOpen, onWizardStateChange]);
+
+  // Si desde el sidebar se solicita crear curso
+  useEffect(() => {
+    if (openCreateTrigger && openCreateTrigger > 0) {
+      setWizardCourse(null);
+      setWizardStep(1);
+      setIsWizardOpen(true);
+      setSelectedCourseForCurriculum(null);
+    }
+  }, [openCreateTrigger]);
 
   const loadCourses = async () => {
     setLoading(true);
@@ -234,26 +253,24 @@ export default function TeacherCoursesView({
               st === 'all'
                 ? 'Todos'
                 : st === 'published'
-                ? 'Publicados'
-                : 'Borradores';
+                  ? 'Publicados'
+                  : 'Borradores';
 
             return (
               <button
                 key={st}
                 onClick={() => setStatusFilter(st)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
-                  statusFilter === st
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${statusFilter === st
                     ? 'bg-[#2B2D33] text-white shadow-sm'
                     : 'bg-[#F0F2F5] text-[#555861] hover:text-[#2B2D33] hover:bg-slate-200 border border-transparent'
-                }`}
+                  }`}
               >
                 <span>{label}</span>
                 <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                    statusFilter === st
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full ${statusFilter === st
                       ? 'bg-[#F2412C] text-white'
                       : 'bg-white text-[#555861] border border-[#D1D5DB]'
-                  }`}
+                    }`}
                 >
                   {count}
                 </span>
@@ -461,11 +478,10 @@ export default function TeacherCoursesView({
                   <button
                     onClick={() => handlePublishClick(course)}
                     disabled={isToggling}
-                    className={`flex items-center justify-center gap-1 py-2 px-2 rounded-xl text-xs font-bold transition cursor-pointer border ${
-                      isPublished
+                    className={`flex items-center justify-center gap-1 py-2 px-2 rounded-xl text-xs font-bold transition cursor-pointer border ${isPublished
                         ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300'
                         : 'bg-[#F2412C] hover:bg-[#D93522] text-white border-[#F2412C] shadow-sm shadow-[#F2412C]/25'
-                    }`}
+                      }`}
                     title={isPublished ? 'Cambiar a borrador' : 'Publicar curso (abre lista de verificación)'}
                   >
                     {isToggling ? (

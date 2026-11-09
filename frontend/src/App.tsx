@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BookOpen, 
   CheckCircle2, 
@@ -16,9 +16,11 @@ import {
   Sparkles,
   ShoppingBag,
   UserCheck,
-  AlertCircle
+  AlertCircle,
+  Menu
 } from 'lucide-react';
 
+import Sidebar from './Sidebar';
 import AdminPanel from './AdminPanel';
 import YouTubeTracker from './YouTubeTracker';
 import TeacherCoursesView from './TeacherCoursesView';
@@ -153,6 +155,17 @@ export default function App() {
   const [fullName, setFullName] = useState('');
   const [authMsg, setAuthMsg] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+
+  // Navegación Sidebar y Control Responsive
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [createCourseTrigger, setCreateCourseTrigger] = useState(0);
+  const [isWizardOpenInTeacherView, setIsWizardOpenInTeacherView] = useState(false);
+
+  const handleCreateCourseFromSidebar = () => {
+    setActiveTab('my-courses');
+    setTeacherSubTab('teaching');
+    setCreateCourseTrigger((prev) => prev + 1);
+  };
 
   useEffect(() => {
     checkAuth();
@@ -413,108 +426,53 @@ export default function App() {
         </div>
       )}
 
-      {/* Barra de Navegación Principal */}
-      <header className="sticky top-0 z-40 bg-[#2B2D33]/95 backdrop-blur-md border-b border-[#363940]/80 px-4 sm:px-8 py-3.5 flex items-center justify-between">
-        <div className="flex items-center gap-8">
-          <button
-            onClick={() => setActiveTab('catalog')}
-            className="flex items-center gap-3 text-left group focus:outline-none"
-          >
-            <div className="w-10 h-10 rounded-2xl bg-[#F2412C] flex items-center justify-center shadow-md shadow-[#F2412C]/20 group-hover:scale-105 transition">
-              <GraduationCap className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <span className="font-black text-lg text-white tracking-tight flex items-center gap-1.5">
-                EducaSuite 360
-                <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-md bg-[#F2412C]/20 text-[#F2412C] border border-[#F2412C]/30">
-                  360°
-                </span>
-              </span>
-              <p className="text-[11px] text-[#E4E6EA]/70 -mt-0.5">Plataforma de Capacitación</p>
-            </div>
-          </button>
+      {/* Sidebar fijo para Escritorio y Drawer para Móvil */}
+      <Sidebar
+        currentUser={currentUser}
+        activeTab={activeTab}
+        isCreatingCourse={isWizardOpenInTeacherView}
+        hasActiveClassroom={Boolean(classroomData)}
+        onNavigate={(tab) => {
+          if (tab === 'my-courses') {
+            loadMyCourses();
+          }
+          setActiveTab(tab);
+          setIsMobileMenuOpen(false);
+        }}
+        onCreateCourse={handleCreateCourseFromSidebar}
+        onOpenAuth={() => {
+          setAuthMode('login');
+          setAuthModalOpen(true);
+          setIsMobileMenuOpen(false);
+        }}
+        onLogout={handleLogout}
+        isOpenMobile={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
+      />
 
-          {/* Menú de Navegación */}
-          <nav className="hidden md:flex items-center gap-1 bg-[#1A1C20]/50 p-1 rounded-2xl border border-[#363940]/80">
+      {/* Contenedor Principal (con padding izquierdo en Desktop para el Sidebar) */}
+      <div className="flex-1 flex flex-col min-w-0 md:pl-64">
+        {/* Barra superior móvil con menú hamburguesa */}
+        <header className="md:hidden sticky top-0 z-30 bg-[#2B2D33] border-b border-[#363940] px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => setActiveTab('catalog')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
-                activeTab === 'catalog'
-                  ? 'bg-[#F2412C] text-white shadow-md shadow-[#F2412C]/30'
-                  : 'text-[#555861] hover:text-white hover:bg-[#363940]/50'
-              }`}
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="p-2 rounded-xl bg-[#363940] text-white hover:bg-[#40444B] transition cursor-pointer"
+              aria-label="Abrir menú"
             >
-              <BookOpen className="w-4 h-4" />
-              Catálogo de Cursos
+              <Menu className="w-5 h-5" />
             </button>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-[#F2412C] flex items-center justify-center text-white">
+                <GraduationCap className="w-4 h-4" />
+              </div>
+              <span className="font-black text-white text-base">EducaSuite 360</span>
+            </div>
+          </div>
 
-            {currentUser && (
-              <button
-                onClick={() => {
-                  loadMyCourses();
-                  setActiveTab('my-courses');
-                }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
-                  activeTab === 'my-courses'
-                    ? 'bg-[#F2412C] text-white shadow-md shadow-[#F2412C]/30'
-                    : 'text-[#555861] hover:text-white hover:bg-[#363940]/50'
-                }`}
-              >
-                <Layers className="w-4 h-4" />
-                Mis Cursos {currentUser.role === 'estudiante' ? `(${myCourses.length})` : ''}
-              </button>
-            )}
-
-            {classroomData && (
-              <button
-                onClick={() => setActiveTab('classroom')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
-                  activeTab === 'classroom'
-                    ? 'bg-[#F2412C] text-white shadow-md shadow-[#F2412C]/30'
-                    : 'text-[#555861] hover:text-white hover:bg-[#363940]/50'
-                }`}
-              >
-                <Play className="w-4 h-4 text-emerald-400" />
-                Aula Virtual
-              </button>
-            )}
-
-            {currentUser && ['admin', 'superadmin'].includes(currentUser.role) && (
-              <button
-                onClick={() => setActiveTab('admin')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
-                  activeTab === 'admin'
-                    ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                    : 'text-purple-400 hover:text-purple-200 hover:bg-purple-950/30'
-                }`}
-              >
-                <ShieldCheck className="w-4 h-4" />
-                Panel Admin
-              </button>
-            )}
-          </nav>
-        </div>
-
-        {/* Acciones de Usuario */}
-        <div className="flex items-center gap-3">
           {currentUser ? (
-            <div className="flex items-center gap-3 bg-[#363940]/60 border border-[#40444B]/60 rounded-2xl p-1.5 pr-4">
-              <div className="w-9 h-9 rounded-xl bg-[#363940] flex items-center justify-center font-bold text-sm text-white">
-                {currentUser.fullName.charAt(0)}
-              </div>
-              <div className="hidden sm:block text-left">
-                <p className="text-xs font-bold text-white truncate max-w-[140px]">{currentUser.fullName}</p>
-                <span className="text-[10px] uppercase font-extrabold text-[#F2412C] bg-[#F2412C]/10 px-1.5 py-0.5 rounded border border-[#F2412C]/20">
-                  {currentUser.role}
-                </span>
-              </div>
-              <button
-                onClick={handleLogout}
-                title="Cerrar sesión"
-                className="p-1.5 rounded-xl hover:bg-[#40444B] text-[#555861] hover:text-[#F2412C] transition"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
+            <div className="w-8 h-8 rounded-xl bg-[#363940] flex items-center justify-center text-white font-bold text-xs border border-white/10">
+              {currentUser.fullName ? currentUser.fullName.charAt(0).toUpperCase() : 'U'}
             </div>
           ) : (
             <button
@@ -522,14 +480,12 @@ export default function App() {
                 setAuthMode('login');
                 setAuthModalOpen(true);
               }}
-              className="flex items-center gap-2 bg-[#F2412C] hover:bg-[#F5543F] text-white text-xs font-bold px-4 py-2.5 rounded-2xl shadow-lg shadow-[#F2412C]/30 transition hover:scale-102"
+              className="px-3 py-1.5 rounded-xl bg-[#F2412C] hover:bg-[#D93522] text-white font-bold text-xs cursor-pointer"
             >
-              <LogIn className="w-4 h-4" />
-              Iniciar Sesión
+              Acceder
             </button>
           )}
-        </div>
-      </header>
+        </header>
 
       {/* CONTENIDO PRINCIPAL POR VISTA */}
       <main className="flex-1 p-4 sm:p-8 max-w-7xl w-full mx-auto">
@@ -795,6 +751,8 @@ export default function App() {
                     currentUser={currentUser}
                     onViewAsStudent={loadCourseDetail}
                     showToast={showToast}
+                    openCreateTrigger={createCourseTrigger}
+                    onWizardStateChange={setIsWizardOpenInTeacherView}
                   />
                 ) : (
                   <div className="space-y-6">
@@ -1127,6 +1085,7 @@ export default function App() {
           </div>
         )}
       </main>
+      </div>
 
       {/* MODAL DE AUTENTICACIÓN (LOGIN Y REGISTRO CON ACCESO RÁPIDO PARA DEMO) */}
       {authModalOpen && (
