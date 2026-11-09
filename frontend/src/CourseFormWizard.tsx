@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FileText,
   DollarSign,
@@ -340,7 +340,7 @@ export default function CourseFormWizard({
         {/* CABECERA DEL WIZARD */}
         <div className="p-6 bg-[#2B2D33] border-b border-[#363940] flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#F2412C] to-[#C82E1C] flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
+            <div className="w-10 h-10 rounded-2xl bg-[#F2412C] flex items-center justify-center text-white shadow-md shadow-[#F2412C]/20">
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
@@ -881,7 +881,7 @@ export default function CourseFormWizard({
                         onError={() => setImgError(true)}
                       />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-tr from-[#1A1C20] via-[#2B2D33] to-[#1A1C20] flex flex-col items-center justify-center p-4 text-center">
+                      <div className="w-full h-full bg-[#2B2D33] flex flex-col items-center justify-center p-4 text-center">
                         <div className="w-10 h-10 rounded-2xl bg-[#F2412C]/20 border border-[#F2412C]/30 flex items-center justify-center text-[#F2412C] mb-1.5">
                           <ImageIcon className="w-5 h-5" />
                         </div>
@@ -889,7 +889,7 @@ export default function CourseFormWizard({
                           {imgError ? 'Error al cargar imagen' : 'Sin imagen de portada'}
                         </span>
                         <span className="text-[10px] text-[#636870]">
-                          (Se usará un fondo degradado institucional)
+                          (Se usará un fondo institucional)
                         </span>
                       </div>
                     )}
@@ -998,7 +998,7 @@ export default function CourseFormWizard({
                 type="button"
                 onClick={() => handleSubmit()}
                 disabled={isSubmitting}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#F2412C] to-[#C82E1C] hover:from-blue-500 hover:to-[#C82E1C] text-white text-xs font-bold shadow-xl shadow-[#F2412C]/30 transition hover:scale-[1.02] disabled:opacity-50 cursor-pointer"
+                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#F2412C] hover:bg-[#D93522] text-white text-xs font-bold shadow-md shadow-[#F2412C]/20 transition hover:scale-[1.02] disabled:opacity-50 cursor-pointer"
               >
                 {isSubmitting ? (
                   <>

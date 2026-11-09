@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   Plus,
@@ -863,15 +863,15 @@ export default function CurriculumBuilder({
         {/* COLUMNA DERECHA: EDITOR CONTEXTUAL                      */}
         {/* ======================================================== */}
         <div className="lg:col-span-5 sticky top-20">
-          <div className="bg-white border border-[#D1D5DB] rounded-3xl shadow-xs p-6 shadow-xl space-y-5">
+          <div className="bg-white border border-[#D1D5DB] rounded-3xl shadow-xs p-6 space-y-5">
             {editorMode.type === 'none' ? (
               /* Vista predeterminada cuando nada está seleccionado */
               <div className="py-10 px-4 text-center space-y-4">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#F2412C]/20 to-[#C82E1C]/20 border border-[#F2412C]/30 text-[#F2412C] flex items-center justify-center mx-auto">
+                <div className="w-14 h-14 rounded-2xl bg-[#F2412C]/10 border border-[#F2412C]/30 text-[#F2412C] flex items-center justify-center mx-auto">
                   <Sparkles className="w-7 h-7" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">Panel de Edición</h3>
+                  <h3 className="text-base font-bold text-[#2B2D33]">Panel de Edición</h3>
                   <p className="text-xs text-[#555861] mt-1 leading-relaxed">
                     Selecciona un módulo o lección a la izquierda para editar sus propiedades, o utiliza el botón para agregar nuevo contenido.
                   </p>

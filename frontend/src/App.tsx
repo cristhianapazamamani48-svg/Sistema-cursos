@@ -420,17 +420,17 @@ export default function App() {
             onClick={() => setActiveTab('catalog')}
             className="flex items-center gap-3 text-left group focus:outline-none"
           >
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#F2412C] to-[#C82E1C] flex items-center justify-center shadow-lg shadow-[#F2412C]/20 group-hover:scale-105 transition">
+            <div className="w-10 h-10 rounded-2xl bg-[#F2412C] flex items-center justify-center shadow-md shadow-[#F2412C]/20 group-hover:scale-105 transition">
               <GraduationCap className="w-6 h-6 text-white" />
             </div>
             <div>
               <span className="font-black text-lg text-white tracking-tight flex items-center gap-1.5">
-                AulaPro
+                EducaSuite 360
                 <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-md bg-[#F2412C]/20 text-[#F2412C] border border-[#F2412C]/30">
-                  DEMO
+                  360°
                 </span>
               </span>
-              <p className="text-[11px] text-[#9EA3AC] -mt-0.5">Plataforma de Capacitación</p>
+              <p className="text-[11px] text-[#E4E6EA]/70 -mt-0.5">Plataforma de Capacitación</p>
             </div>
           </button>
 
@@ -441,7 +441,7 @@ export default function App() {
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
                 activeTab === 'catalog'
                   ? 'bg-[#F2412C] text-white shadow-md shadow-[#F2412C]/30'
-                  : 'text-[#9EA3AC] hover:text-white hover:bg-[#363940]/50'
+                  : 'text-[#555861] hover:text-white hover:bg-[#363940]/50'
               }`}
             >
               <BookOpen className="w-4 h-4" />
@@ -457,7 +457,7 @@ export default function App() {
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
                   activeTab === 'my-courses'
                     ? 'bg-[#F2412C] text-white shadow-md shadow-[#F2412C]/30'
-                    : 'text-[#9EA3AC] hover:text-white hover:bg-[#363940]/50'
+                    : 'text-[#555861] hover:text-white hover:bg-[#363940]/50'
                 }`}
               >
                 <Layers className="w-4 h-4" />
@@ -471,7 +471,7 @@ export default function App() {
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
                   activeTab === 'classroom'
                     ? 'bg-[#F2412C] text-white shadow-md shadow-[#F2412C]/30'
-                    : 'text-[#9EA3AC] hover:text-white hover:bg-[#363940]/50'
+                    : 'text-[#555861] hover:text-white hover:bg-[#363940]/50'
                 }`}
               >
                 <Play className="w-4 h-4 text-emerald-400" />
@@ -499,7 +499,7 @@ export default function App() {
         <div className="flex items-center gap-3">
           {currentUser ? (
             <div className="flex items-center gap-3 bg-[#363940]/60 border border-[#40444B]/60 rounded-2xl p-1.5 pr-4">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#40444B] to-[#40444B] flex items-center justify-center font-bold text-sm text-white">
+              <div className="w-9 h-9 rounded-xl bg-[#363940] flex items-center justify-center font-bold text-sm text-white">
                 {currentUser.fullName.charAt(0)}
               </div>
               <div className="hidden sm:block text-left">
@@ -511,7 +511,7 @@ export default function App() {
               <button
                 onClick={handleLogout}
                 title="Cerrar sesión"
-                className="p-1.5 rounded-xl hover:bg-[#40444B] text-[#9EA3AC] hover:text-[#F2412C] transition"
+                className="p-1.5 rounded-xl hover:bg-[#40444B] text-[#555861] hover:text-[#F2412C] transition"
               >
                 <LogOut className="w-4 h-4" />
               </button>
@@ -537,15 +537,15 @@ export default function App() {
         {activeTab === 'catalog' && (
           <div className="space-y-8 animate-fade-in">
             {/* Hero */}
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#2D1210] via-[#2B2D33] to-[#1A1C20] border border-[#363940] p-8 sm:p-12 shadow-2xl">
+            <div className="relative overflow-hidden rounded-3xl bg-[#2B2D33] border border-[#363940] p-8 sm:p-12 shadow-md">
               <div className="max-w-2xl space-y-4">
-                <span className="inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider bg-[#F2412C]/20 text-[#F2412C] border border-[#F2412C]/30 px-3 py-1 rounded-full">
+                <span className="inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider bg-[#F2412C] text-white px-3 py-1 rounded-full shadow-xs">
                   <Sparkles className="w-3.5 h-3.5" /> Capacitación Profesional Certificada
                 </span>
                 <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight">
                   Aprende a tu ritmo con verificación de progreso real
                 </h1>
-                <p className="text-sm sm:text-base text-[#B8BDC7] leading-relaxed">
+                <p className="text-sm sm:text-base text-[#E4E6EA]/80 leading-relaxed">
                   Sistema interactivo con seguimiento de visualización segundo a segundo y bloqueo secuencial anti-trampa.
                 </p>
               </div>
@@ -556,7 +556,7 @@ export default function App() {
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h2 className="text-2xl font-black text-[#2B2D33]">Cursos Disponibles</h2>
-                  <p className="text-xs text-[#9EA3AC]">Selecciona un curso para ver su temario o inscribirte</p>
+                  <p className="text-xs text-[#555861]">Selecciona un curso para ver su temario o inscribirte</p>
                 </div>
               </div>
 
@@ -568,34 +568,57 @@ export default function App() {
                   return (
                     <div
                       key={c.id}
-                      className="bg-[#2B2D33] border border-[#363940] rounded-3xl overflow-hidden hover:border-[#40444B] transition flex flex-col group shadow-xl"
+                      className="group bg-white border border-[#D1D5DB] hover:border-[#2B2D33]/40 rounded-3xl overflow-hidden shadow-xs hover:shadow-md transition flex flex-col justify-between"
                     >
-                      <div className="h-44 bg-gradient-to-tr from-[#363940] to-[#40444B] relative p-6 flex flex-col justify-between">
-                        <div className="flex justify-between items-start">
+                      {/* Portada / Thumbnail */}
+                      <div className="relative h-48 w-full bg-[#2B2D33] overflow-hidden">
+                        {c.thumbnailUrl ? (
+                          <img
+                            src={c.thumbnailUrl}
+                            alt={c.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-[#2B2D33] flex flex-col items-center justify-center p-6 text-center">
+                            <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-white mb-2">
+                              <BookOpen className="w-6 h-6" />
+                            </div>
+                            <span className="text-xs font-bold text-[#E4E6EA] line-clamp-1 max-w-[200px]">
+                              {c.slug}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Badges superiores */}
+                        <div className="absolute top-3 left-3">
+                          <span className="text-[11px] font-bold bg-[#2B2D33]/90 text-[#E4E6EA] px-2.5 py-1 rounded-lg border border-white/20">
+                            Min. {c.minWatchPercentage}%
+                          </span>
+                        </div>
+
+                        <div className="absolute top-3 right-3">
                           <span
                             className={`text-xs font-black px-3 py-1 rounded-xl shadow-md ${
                               isFree
-                                ? 'bg-emerald-500 text-white'
+                                ? 'bg-emerald-600 text-white'
                                 : 'bg-[#F2412C] text-white'
                             }`}
                           >
                             {isFree ? 'GRATIS' : `${c.price} ${c.currency}`}
                           </span>
-                          <span className="text-[11px] font-bold bg-[#2B2D33]/80 backdrop-blur text-[#B8BDC7] px-2.5 py-1 rounded-lg border border-[#40444B]">
-                            Min. {c.minWatchPercentage}%
-                          </span>
-                        </div>
-                        <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur border border-white/20 flex items-center justify-center text-white">
-                          <BookOpen className="w-6 h-6" />
                         </div>
                       </div>
 
+                      {/* Info del curso */}
                       <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
                         <div className="space-y-2">
                           <h3 className="text-lg font-bold text-[#2B2D33] group-hover:text-[#F2412C] transition">
                             {c.title}
                           </h3>
-                          <p className="text-xs text-[#9EA3AC] line-clamp-2 leading-relaxed">
+                          <p className="text-xs text-[#555861] line-clamp-2 leading-relaxed">
                             {c.description || 'Domina los conceptos prácticos con este curso integral.'}
                           </p>
                         </div>
@@ -603,7 +626,7 @@ export default function App() {
                         <div className="pt-4 border-t border-[#E4E6EA] flex items-center gap-3">
                           <button
                             onClick={() => loadCourseDetail(c.slug)}
-                            className="flex-1 bg-white hover:bg-slate-100 text-[#2B2D33] border border-[#D1D5DB] text-xs font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2"
+                            className="flex-1 bg-white hover:bg-slate-50 text-[#2B2D33] border border-[#D1D5DB] text-xs font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer"
                           >
                             Ver Temario
                           </button>
@@ -611,14 +634,14 @@ export default function App() {
                           {isEnrolled ? (
                             <button
                               onClick={() => enterClassroom(c.slug)}
-                              className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20"
+                              className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-sm cursor-pointer"
                             >
                               <Play className="w-3.5 h-3.5" /> Entrar al Aula
                             </button>
                           ) : (
                             <button
                               onClick={() => handleEnrollOrBuy(c.id, c.price)}
-                              className="flex-1 bg-[#F2412C] hover:bg-[#F5543F] text-white text-xs font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-[#F2412C]/20"
+                              className="flex-1 bg-[#F2412C] hover:bg-[#D93522] text-white text-xs font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-sm shadow-[#F2412C]/20 cursor-pointer"
                             >
                               {isFree ? 'Inscribirme Gratis' : 'Comprar Curso'}
                             </button>
@@ -638,7 +661,7 @@ export default function App() {
           <div className="space-y-8 animate-fade-in max-w-5xl mx-auto">
             <button
               onClick={() => setActiveTab('catalog')}
-              className="text-xs font-bold text-[#9EA3AC] hover:text-white flex items-center gap-2 transition"
+              className="text-xs font-bold text-[#555861] hover:text-white flex items-center gap-2 transition"
             >
               ← Volver al Catálogo
             </button>
@@ -650,18 +673,18 @@ export default function App() {
                   <span className="text-xs font-black uppercase px-3 py-1 rounded-xl bg-[#F2412C]/20 text-[#F2412C] border border-[#F2412C]/30">
                     {Number(courseDetail.price) === 0 ? 'Curso Gratuito' : `${courseDetail.price} ${courseDetail.currency}`}
                   </span>
-                  <span className="text-xs text-[#9EA3AC] flex items-center gap-1.5">
+                  <span className="text-xs text-[#555861] flex items-center gap-1.5">
                     <Clock className="w-3.5 h-3.5" /> Requisito de aprobación: {courseDetail.minWatchPercentage}%
                   </span>
                 </div>
                 <h1 className="text-3xl font-black text-[#2B2D33]">{courseDetail.title}</h1>
-                <p className="text-sm text-[#B8BDC7] leading-relaxed">{courseDetail.description}</p>
+                <p className="text-sm text-[#555861] leading-relaxed">{courseDetail.description}</p>
               </div>
 
               {/* Caja de Acción */}
               <div className="bg-[#F8F9FA] border border-[#D1D5DB] rounded-2xl p-6 w-full md:w-80 space-y-4 shrink-0">
                 <div className="text-center space-y-1">
-                  <span className="text-xs text-[#9EA3AC]">Inversión</span>
+                  <span className="text-xs text-[#555861]">Inversión</span>
                   <div className="text-3xl font-black text-[#2B2D33]">
                     {Number(courseDetail.price) === 0 ? 'Gratis' : `${courseDetail.price} ${courseDetail.currency}`}
                   </div>
@@ -706,7 +729,7 @@ export default function App() {
                         </div>
                         <div>
                           <h3 className="text-sm font-bold text-[#2B2D33]">{m.title}</h3>
-                          {m.description && <p className="text-xs text-[#9EA3AC]">{m.description}</p>}
+                          {m.description && <p className="text-xs text-[#555861]">{m.description}</p>}
                         </div>
                       </div>
                       <span className="text-xs text-[#636870] font-medium">
@@ -749,7 +772,7 @@ export default function App() {
                       className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
                         teacherSubTab === 'teaching'
                           ? 'bg-[#F2412C] text-white shadow-md shadow-[#F2412C]/30'
-                          : 'text-[#9EA3AC] hover:text-white hover:bg-[#363940]/60'
+                          : 'text-[#555861] hover:text-white hover:bg-[#363940]/60'
                       }`}
                     >
                       🎓 Gestión de Mis Cursos
@@ -759,7 +782,7 @@ export default function App() {
                       className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
                         teacherSubTab === 'enrolled'
                           ? 'bg-[#F2412C] text-white shadow-md shadow-[#F2412C]/30'
-                          : 'text-[#9EA3AC] hover:text-white hover:bg-[#363940]/60'
+                          : 'text-[#555861] hover:text-white hover:bg-[#363940]/60'
                       }`}
                     >
                       📚 Cursos Inscritos como Estudiante ({myCourses.length})
@@ -777,7 +800,7 @@ export default function App() {
                   <div className="space-y-6">
                     <div>
                       <h2 className="text-xl font-black text-[#2B2D33]">Mis Cursos Inscritos</h2>
-                      <p className="text-xs text-[#9EA3AC]">Tus inscripciones y avance como estudiante</p>
+                      <p className="text-xs text-[#555861]">Tus inscripciones y avance como estudiante</p>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -797,18 +820,18 @@ export default function App() {
                               >
                                 {c.status === 'completed' ? 'Completado' : 'En Curso'}
                               </span>
-                              <span className="text-xs font-bold text-[#9EA3AC]">{c.progressPercentage}%</span>
+                              <span className="text-xs font-bold text-[#555861]">{c.progressPercentage}%</span>
                             </div>
 
                             <h3 className="text-base font-bold text-[#2B2D33]">{c.title}</h3>
-                            <p className="text-xs text-[#9EA3AC] line-clamp-2">{c.description}</p>
+                            <p className="text-xs text-[#555861] line-clamp-2">{c.description}</p>
                           </div>
 
                           <div className="space-y-3 pt-3 border-t border-[#E4E6EA]">
                             <div className="space-y-1.5">
                               <div className="w-full bg-[#363940] h-2 rounded-full overflow-hidden">
                                 <div
-                                  className="bg-gradient-to-r from-blue-500 to-emerald-400 h-full rounded-full transition-all duration-500"
+                                  className="bg-emerald-500 h-full rounded-full transition-all duration-500"
                                   style={{ width: `${c.progressPercentage}%` }}
                                 ></div>
                               </div>
@@ -835,16 +858,16 @@ export default function App() {
               <div className="space-y-8">
                 <div>
                   <h1 className="text-2xl font-black text-[#2B2D33]">Mis Cursos</h1>
-                  <p className="text-xs text-[#9EA3AC]">Continúa con tus capacitaciones y revisa tu avance en tiempo real</p>
+                  <p className="text-xs text-[#555861]">Continúa con tus capacitaciones y revisa tu avance en tiempo real</p>
                 </div>
 
                 {myCourses.length === 0 ? (
                   <div className="bg-[#2B2D33] border border-[#363940] rounded-3xl p-12 text-center space-y-4 max-w-lg mx-auto">
-                    <div className="w-16 h-16 rounded-full bg-[#363940] flex items-center justify-center mx-auto text-[#9EA3AC]">
+                    <div className="w-16 h-16 rounded-full bg-[#363940] flex items-center justify-center mx-auto text-[#555861]">
                       <BookOpen className="w-8 h-8" />
                     </div>
                     <h3 className="text-lg font-bold text-white">No tienes cursos activos</h3>
-                    <p className="text-xs text-[#9EA3AC] leading-relaxed">
+                    <p className="text-xs text-[#555861] leading-relaxed">
                       Inscríbete a un curso del catálogo para comenzar a aprender de inmediato.
                     </p>
                     <button
@@ -872,11 +895,11 @@ export default function App() {
                             >
                               {c.status === 'completed' ? 'Completado' : 'En Curso'}
                             </span>
-                            <span className="text-xs font-bold text-[#9EA3AC]">{c.progressPercentage}%</span>
+                            <span className="text-xs font-bold text-[#555861]">{c.progressPercentage}%</span>
                           </div>
 
                           <h3 className="text-base font-bold text-[#2B2D33]">{c.title}</h3>
-                          <p className="text-xs text-[#9EA3AC] line-clamp-2">{c.description}</p>
+                          <p className="text-xs text-[#555861] line-clamp-2">{c.description}</p>
                         </div>
 
                         <div className="space-y-3 pt-3 border-t border-[#E4E6EA]">
@@ -884,7 +907,7 @@ export default function App() {
                           <div className="space-y-1.5">
                             <div className="w-full bg-[#363940] h-2 rounded-full overflow-hidden">
                               <div
-                                className="bg-gradient-to-r from-blue-500 to-emerald-400 h-full rounded-full transition-all duration-500"
+                                className="bg-emerald-500 h-full rounded-full transition-all duration-500"
                                 style={{ width: `${c.progressPercentage}%` }}
                               ></div>
                             </div>
@@ -924,7 +947,7 @@ export default function App() {
               {/* Progreso del curso */}
               <div className="flex items-center gap-6">
                 <div className="text-right">
-                  <span className="text-xs text-[#9EA3AC]">Progreso Total</span>
+                  <span className="text-xs text-[#555861]">Progreso Total</span>
                   <div className="text-xl font-black text-[#2B2D33]">
                     {classroomData.overallProgress.percentage}%
                   </div>
@@ -939,7 +962,7 @@ export default function App() {
                     <Award className="w-4 h-4" /> Solicitar Certificado
                   </button>
                 ) : (
-                  <span className="text-xs bg-[#363940] text-[#9EA3AC] font-semibold px-3 py-2 rounded-xl border border-[#40444B]">
+                  <span className="text-xs bg-[#363940] text-[#555861] font-semibold px-3 py-2 rounded-xl border border-[#40444B]">
                     {classroomData.overallProgress.completedLessons} / {classroomData.overallProgress.totalLessons} lecciones
                   </span>
                 )}
@@ -984,7 +1007,7 @@ export default function App() {
 
                             {!m.isLocked && (
                               <ChevronDown
-                                className={`w-4 h-4 text-[#9EA3AC] transition-transform ${
+                                className={`w-4 h-4 text-[#555861] transition-transform ${
                                   isExpanded ? 'rotate-180' : ''
                                 }`}
                               />
@@ -1076,10 +1099,10 @@ export default function App() {
 
                     {/* Pestañas de la lección */}
                     <div className="border-t border-[#363940] pt-4 space-y-3">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-[#9EA3AC]">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-[#555861]">
                         Normas de Aprobación
                       </h4>
-                      <p className="text-xs text-[#B8BDC7] leading-relaxed">
+                      <p className="text-xs text-[#555861] leading-relaxed">
                         Para registrar tu asistencia debes reproducir al menos el{' '}
                         <strong className="text-white">{classroomData.course.minWatchPercentage}%</strong> del video
                         sin saltar fragmentos. Nuestro sistema guarda automáticamente tu avance mediante pulsos de
@@ -1088,7 +1111,7 @@ export default function App() {
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-[#2B2D33] border border-[#363940] rounded-3xl p-12 text-center text-[#9EA3AC]">
+                  <div className="bg-[#2B2D33] border border-[#363940] rounded-3xl p-12 text-center text-[#555861]">
                     Selecciona una lección del temario para comenzar a estudiar.
                   </div>
                 )}
@@ -1111,7 +1134,7 @@ export default function App() {
           <div className="bg-[#2B2D33] border border-[#363940] rounded-3xl max-w-md w-full p-8 shadow-2xl relative space-y-6">
             <button
               onClick={() => setAuthModalOpen(false)}
-              className="absolute top-5 right-5 text-[#9EA3AC] hover:text-white transition"
+              className="absolute top-5 right-5 text-[#555861] hover:text-white transition"
             >
               ✕
             </button>
@@ -1120,7 +1143,7 @@ export default function App() {
               <h3 className="text-2xl font-black text-white">
                 {authMode === 'login' ? 'Iniciar Sesión' : 'Crear Cuenta'}
               </h3>
-              <p className="text-xs text-[#9EA3AC]">
+              <p className="text-xs text-[#555861]">
                 {authMode === 'login'
                   ? 'Ingresa a tu cuenta para acceder a tus cursos'
                   : 'Regístrate para acceder al catálogo completo'}
@@ -1129,7 +1152,7 @@ export default function App() {
 
             {/* Accesos Rápidos de Demo */}
             <div className="bg-[#1A1C20] p-4 rounded-2xl border border-[#363940] space-y-2">
-              <span className="text-[10px] font-extrabold uppercase text-[#9EA3AC] tracking-wider flex items-center gap-1">
+              <span className="text-[10px] font-extrabold uppercase text-[#555861] tracking-wider flex items-center gap-1">
                 <UserCheck className="w-3 h-3 text-[#F2412C]" /> Cuentas de Demostración
               </span>
               <div className="grid grid-cols-2 gap-2 text-xs">
@@ -1139,7 +1162,7 @@ export default function App() {
                   className="bg-[#2B2D33] hover:bg-[#363940] text-slate-200 p-2 rounded-xl border border-[#363940] text-left transition"
                 >
                   <strong className="block text-[#F2412C]">Estudiante</strong>
-                  <span className="text-[10px] text-[#9EA3AC]">estudiante@demo.com</span>
+                  <span className="text-[10px] text-[#555861]">estudiante@demo.com</span>
                 </button>
                 <button
                   type="button"
@@ -1147,7 +1170,7 @@ export default function App() {
                   className="bg-[#2B2D33] hover:bg-[#363940] text-slate-200 p-2 rounded-xl border border-[#363940] text-left transition"
                 >
                   <strong className="block text-purple-400">Administrador</strong>
-                  <span className="text-[10px] text-[#9EA3AC]">admin@demo.com</span>
+                  <span className="text-[10px] text-[#555861]">admin@demo.com</span>
                 </button>
               </div>
             </div>
@@ -1167,7 +1190,7 @@ export default function App() {
             <form onSubmit={authMode === 'login' ? handleLogin : handleRegister} className="space-y-4">
               {authMode === 'register' && (
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-[#B8BDC7]">Nombre Completo</label>
+                  <label className="text-xs font-bold text-[#555861]">Nombre Completo</label>
                   <input
                     type="text"
                     required
@@ -1180,7 +1203,7 @@ export default function App() {
               )}
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-[#B8BDC7]">Correo Electrónico</label>
+                <label className="text-xs font-bold text-[#555861]">Correo Electrónico</label>
                 <input
                   type="email"
                   required
@@ -1192,7 +1215,7 @@ export default function App() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-[#B8BDC7]">Contraseña</label>
+                <label className="text-xs font-bold text-[#555861]">Contraseña</label>
                 <input
                   type="password"
                   required

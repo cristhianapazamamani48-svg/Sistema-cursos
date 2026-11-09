@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   BookOpen,
   Layers,
@@ -342,7 +342,7 @@ export default function TeacherCoursesView({
                         }}
                       />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-tr from-[#2B2D33] to-[#3B3E46] flex flex-col items-center justify-center p-6 text-center">
+                      <div className="w-full h-full bg-[#2B2D33] flex flex-col items-center justify-center p-6 text-center">
                         <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-white mb-2">
                           <BookOpen className="w-6 h-6" />
                         </div>
@@ -351,8 +351,6 @@ export default function TeacherCoursesView({
                         </span>
                       </div>
                     )}
-
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
 
                     {/* Badge de Estado: Borrador / Publicado */}
                     <div className="absolute top-3 left-3">
