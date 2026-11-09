@@ -88,5 +88,33 @@ export class AdminService {
       completedAt: row.completedAt,
     }));
   }
+
+  /**
+   * Listar todos los usuarios del sistema para el panel de administración
+   */
+  async getAllUsers() {
+    const sql = `
+      SELECT
+        id,
+        email,
+        full_name as "fullName",
+        role,
+        is_active as "isActive",
+        created_at as "createdAt"
+      FROM users
+      ORDER BY id ASC
+      LIMIT 200;
+    `;
+
+    const result = await this.pool.query(sql);
+    return result.rows.map((row) => ({
+      id: Number(row.id),
+      email: row.email,
+      fullName: row.fullName,
+      role: row.role,
+      isActive: Boolean(row.isActive),
+      createdAt: row.createdAt,
+    }));
+  }
 }
 

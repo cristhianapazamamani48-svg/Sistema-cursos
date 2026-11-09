@@ -2,14 +2,29 @@ import React from 'react';
 import {
   BookOpen,
   Layers,
+  CreditCard,
   PlusCircle,
-  ShieldCheck,
+  LayoutDashboard,
+  Video,
+  Users,
   Play,
   LogOut,
   LogIn,
   GraduationCap,
-  X
+  X,
 } from 'lucide-react';
+
+export type AppTab =
+  | 'catalog'
+  | 'course-detail'
+  | 'my-courses'
+  | 'my-orders'
+  | 'teacher-courses'
+  | 'create-course'
+  | 'classroom'
+  | 'admin';
+
+export type AdminSubTab = 'summary' | 'orders' | 'videos' | 'users' | 'courses';
 
 export interface SidebarProps {
   currentUser: {
@@ -18,10 +33,11 @@ export interface SidebarProps {
     fullName: string;
     role: string;
   } | null;
-  activeTab: 'catalog' | 'course-detail' | 'my-courses' | 'classroom' | 'admin';
+  activeTab: AppTab;
+  adminTab?: AdminSubTab;
   isCreatingCourse?: boolean;
   hasActiveClassroom?: boolean;
-  onNavigate: (tab: 'catalog' | 'my-courses' | 'classroom' | 'admin') => void;
+  onNavigate: (tab: AppTab, adminSubTab?: AdminSubTab) => void;
   onCreateCourse: () => void;
   onOpenAuth: () => void;
   onLogout: () => void;
@@ -32,6 +48,7 @@ export interface SidebarProps {
 export default function Sidebar({
   currentUser,
   activeTab,
+  adminTab = 'summary',
   isCreatingCourse = false,
   hasActiveClassroom = false,
   onNavigate,
@@ -41,82 +58,192 @@ export default function Sidebar({
   isOpenMobile,
   onCloseMobile,
 }: SidebarProps) {
-  // Ítems de navegación dinámicos según rol
   const role = currentUser?.role;
-  const isEstudiante = role === 'estudiante';
-  const isDocente = role === 'docente';
+  const isEstudiante = role === 'estudiante' || role === 'student';
+  const isDocente = role === 'docente' || role === 'teacher';
   const isAdmin = role === 'admin' || role === 'superadmin';
+  const isVisitante = !currentUser;
 
-  const navItems = [
-    {
-      id: 'catalog',
-      label: 'Catálogo',
-      icon: BookOpen,
-      isActive: (activeTab === 'catalog' || activeTab === 'course-detail') && !isCreatingCourse,
-      onClick: () => {
-        onNavigate('catalog');
-        onCloseMobile();
+  // Manejo del clic en el logo según el rol
+  const handleLogoClick = () => {
+    if (isDocente) {
+      onNavigate('teacher-courses');
+    } else if (isAdmin) {
+      onNavigate('admin', 'summary');
+    } else if (isEstudiante) {
+      onNavigate('my-courses');
+    } else {
+      onNavigate('catalog');
+    }
+    onCloseMobile();
+  };
+
+  // Definición de ítems según rol (Tarea B)
+  let navItems: {
+    id: string;
+    label: string;
+    icon: any;
+    isActive: boolean;
+    onClick: () => void;
+  }[] = [];
+
+  if (isVisitante) {
+    // Visitante: solo Catálogo e Iniciar sesión
+    navItems = [
+      {
+        id: 'catalog',
+        label: 'Catálogo',
+        icon: BookOpen,
+        isActive: activeTab === 'catalog' || activeTab === 'course-detail',
+        onClick: () => {
+          onNavigate('catalog');
+          onCloseMobile();
+        },
       },
-      show: true, // visible para todos
-    },
-    {
-      id: 'my-courses',
-      label: 'Mis Cursos',
-      icon: Layers,
-      isActive: activeTab === 'my-courses' && !isCreatingCourse,
-      onClick: () => {
-        onNavigate('my-courses');
-        onCloseMobile();
+    ];
+  } else if (isEstudiante) {
+    // Estudiante: Catálogo, Mis cursos, Mis pagos (+ Aula si hay activa)
+    navItems = [
+      {
+        id: 'catalog',
+        label: 'Catálogo',
+        icon: BookOpen,
+        isActive: activeTab === 'catalog' || activeTab === 'course-detail',
+        onClick: () => {
+          onNavigate('catalog');
+          onCloseMobile();
+        },
       },
-      show: !!currentUser, // Estudiante, Docente, Admin
-    },
-    {
-      id: 'create-course',
-      label: 'Crear Cursos',
-      icon: PlusCircle,
-      isActive: isCreatingCourse,
-      onClick: () => {
-        onCreateCourse();
-        onCloseMobile();
+      {
+        id: 'my-courses',
+        label: 'Mis Cursos',
+        icon: Layers,
+        isActive: activeTab === 'my-courses',
+        onClick: () => {
+          onNavigate('my-courses');
+          onCloseMobile();
+        },
       },
-      show: isDocente || isAdmin, // Docente y Admin
-    },
-    {
-      id: 'admin',
-      label: 'Panel Admin',
-      icon: ShieldCheck,
-      isActive: activeTab === 'admin' && !isCreatingCourse,
-      onClick: () => {
-        onNavigate('admin');
-        onCloseMobile();
+      {
+        id: 'my-orders',
+        label: 'Mis Pagos',
+        icon: CreditCard,
+        isActive: activeTab === 'my-orders',
+        onClick: () => {
+          onNavigate('my-orders');
+          onCloseMobile();
+        },
       },
-      show: isAdmin, // Solo Admin
-    },
-    {
-      id: 'classroom',
-      label: 'Aula Virtual',
-      icon: Play,
-      isActive: activeTab === 'classroom' && !isCreatingCourse,
-      onClick: () => {
-        onNavigate('classroom');
-        onCloseMobile();
+    ];
+
+    if (hasActiveClassroom) {
+      navItems.push({
+        id: 'classroom',
+        label: 'Aula Virtual',
+        icon: Play,
+        isActive: activeTab === 'classroom',
+        onClick: () => {
+          onNavigate('classroom');
+          onCloseMobile();
+        },
+      });
+    }
+  } else if (isDocente) {
+    // Docente: Mis cursos (los que creó) y Crear curso, sin Catálogo comprador
+    navItems = [
+      {
+        id: 'teacher-courses',
+        label: 'Mis Cursos',
+        icon: Layers,
+        isActive: activeTab === 'teacher-courses' && !isCreatingCourse,
+        onClick: () => {
+          onNavigate('teacher-courses');
+          onCloseMobile();
+        },
       },
-      show: hasActiveClassroom, // Acceso directo al aula en curso
-    },
-  ].filter((item) => item.show);
+      {
+        id: 'create-course',
+        label: 'Crear Curso',
+        icon: PlusCircle,
+        isActive: isCreatingCourse || activeTab === 'create-course',
+        onClick: () => {
+          onCreateCourse();
+          onCloseMobile();
+        },
+      },
+    ];
+  } else if (isAdmin) {
+    // Admin y superadmin: solo Resumen, Pagos, Videos, Usuarios y Cursos, sin Mis cursos ni Crear curso
+    navItems = [
+      {
+        id: 'admin-summary',
+        label: 'Resumen',
+        icon: LayoutDashboard,
+        isActive: activeTab === 'admin' && (adminTab === 'summary' || !adminTab),
+        onClick: () => {
+          onNavigate('admin', 'summary');
+          onCloseMobile();
+        },
+      },
+      {
+        id: 'admin-orders',
+        label: 'Pagos',
+        icon: CreditCard,
+        isActive: activeTab === 'admin' && adminTab === 'orders',
+        onClick: () => {
+          onNavigate('admin', 'orders');
+          onCloseMobile();
+        },
+      },
+      {
+        id: 'admin-videos',
+        label: 'Videos',
+        icon: Video,
+        isActive: activeTab === 'admin' && adminTab === 'videos',
+        onClick: () => {
+          onNavigate('admin', 'videos');
+          onCloseMobile();
+        },
+      },
+      {
+        id: 'admin-users',
+        label: 'Usuarios',
+        icon: Users,
+        isActive: activeTab === 'admin' && adminTab === 'users',
+        onClick: () => {
+          onNavigate('admin', 'users');
+          onCloseMobile();
+        },
+      },
+      {
+        id: 'admin-courses',
+        label: 'Cursos',
+        icon: BookOpen,
+        isActive: activeTab === 'admin' && adminTab === 'courses',
+        onClick: () => {
+          onNavigate('admin', 'courses');
+          onCloseMobile();
+        },
+      },
+    ];
+  }
+
+  const roleBadgeLabel = () => {
+    if (isAdmin) return 'Administrador';
+    if (isDocente) return 'Docente';
+    if (isEstudiante) return 'Estudiante';
+    return 'Visitante';
+  };
 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-[#2B2D33] text-[#E4E6EA] border-r border-[#363940] select-none">
       {/* 1. LOGO Y BRANDING */}
       <div className="p-5 border-b border-[#363940] flex items-center justify-between">
         <button
-          onClick={() => {
-            onNavigate('catalog');
-            onCloseMobile();
-          }}
-          className="flex items-center gap-3 text-left group focus:outline-none cursor-pointer"
+          onClick={handleLogoClick}
+          className="flex items-center gap-3 text-left group cursor-pointer focus:outline-none"
         >
-          <div className="w-10 h-10 rounded-2xl bg-[#F2412C] flex items-center justify-center text-white shadow-md shadow-[#F2412C]/25 group-hover:scale-105 transition shrink-0">
+          <div className="w-10 h-10 rounded-2xl bg-[#F2412C] flex items-center justify-center text-white shadow-md shadow-[#F2412C]/20 group-hover:scale-105 transition">
             <GraduationCap className="w-6 h-6" />
           </div>
           <div>
@@ -124,7 +251,7 @@ export default function Sidebar({
               EducaSuite 360
             </span>
             <p className="text-[10px] font-bold text-[#E4E6EA]/60 uppercase tracking-wider">
-              Plataforma Digital
+              {roleBadgeLabel()}
             </p>
           </div>
         </button>
@@ -158,34 +285,31 @@ export default function Sidebar({
               }`}
             >
               <Icon
-                className={`w-4 h-4 shrink-0 transition ${
-                  item.isActive ? 'text-white' : 'text-[#9EA3AC]'
+                className={`w-4 h-4 shrink-0 ${
+                  item.isActive ? 'text-white stroke-[2.5]' : 'text-[#9EA3AC]'
                 }`}
               />
               <span className="truncate">{item.label}</span>
-              {item.isActive && (
-                <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-              )}
             </button>
           );
         })}
       </div>
 
-      {/* 3. USUARIO / CERRAR SESIÓN (ABAJO) */}
-      <div className="p-3.5 border-t border-[#363940] bg-[#24262B]">
+      {/* 3. PIE DEL SIDEBAR: USUARIO / CERRAR SESIÓN / INICIAR SESIÓN */}
+      <div className="p-4 border-t border-[#363940] bg-[#24262B]">
         {currentUser ? (
-          <div className="flex items-center justify-between gap-2.5 p-2 rounded-2xl bg-[#2B2D33] border border-[#363940]">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-9 h-9 rounded-xl bg-[#363940] text-white flex items-center justify-center font-black text-sm shrink-0 border border-white/10">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-[#F2412C] flex items-center justify-center text-white font-black text-xs shrink-0 shadow-sm">
                 {currentUser.fullName ? currentUser.fullName.charAt(0).toUpperCase() : 'U'}
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-bold text-white truncate" title={currentUser.fullName}>
-                  {currentUser.fullName}
+                <p className="text-xs font-bold text-white truncate leading-tight">
+                  {currentUser.fullName || 'Usuario'}
                 </p>
-                <span className="inline-block text-[9px] uppercase font-extrabold text-[#F2412C] bg-[#F2412C]/10 px-1.5 py-0.2 rounded border border-[#F2412C]/20">
-                  {currentUser.role}
-                </span>
+                <p className="text-[11px] text-[#9EA3AC] truncate leading-tight mt-0.5">
+                  {currentUser.email}
+                </p>
               </div>
             </div>
 
@@ -242,4 +366,3 @@ export default function Sidebar({
     </>
   );
 }
-

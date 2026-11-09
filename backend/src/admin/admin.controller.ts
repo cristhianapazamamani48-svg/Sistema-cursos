@@ -21,5 +21,12 @@ export class AdminController {
   async getEnrolledStudents() {
     return this.adminService.getEnrolledStudents();
   }
+
+  @Get('users')
+  @UseGuards(SessionGuard, RolesGuard)
+  @Roles('admin', 'superadmin')
+  async getAllUsers() {
+    return this.adminService.getAllUsers();
+  }
 }
 

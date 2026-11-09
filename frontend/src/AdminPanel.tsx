@@ -74,23 +74,54 @@ interface VideoItem {
   createdAt: string;
 }
 
+interface PlatformUser {
+  id: number;
+  email: string;
+  fullName: string;
+  role: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+interface PlatformCourse {
+  id: number;
+  title: string;
+  slug: string;
+  category: string;
+  price: string;
+  currency: string;
+  status: string;
+  minWatchPercentage: number;
+  createdAt: string;
+}
+
 interface AdminPanelProps {
-  onClose: () => void;
+  onClose?: () => void;
   csrfToken?: string;
+  initialTab?: 'summary' | 'orders' | 'videos' | 'users' | 'courses';
 }
 
 /* ------------------------------------------------------------------ */
 /* Componente principal                                                 */
 /* ------------------------------------------------------------------ */
 
-export default function AdminPanel({ onClose }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<'summary' | 'orders' | 'videos' | 'students'>('summary');
+export default function AdminPanel({ onClose, initialTab }: AdminPanelProps) {
+  const [activeTab, setActiveTab] = useState<'summary' | 'orders' | 'videos' | 'users' | 'courses'>(
+    initialTab || 'summary'
+  );
   const [summary, setSummary] = useState<AdminSummary | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [videos, setVideos] = useState<VideoItem[]>([]);
-  const [students, setStudents] = useState<StudentEnrollment[]>([]);
+  const [users, setUsers] = useState<PlatformUser[]>([]);
+  const [coursesList, setCoursesList] = useState<PlatformCourse[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionMsg, setActionMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   // Filtro de órdenes
   const [orderFilter, setOrderFilter] = useState<'all' | 'pending' | 'paid' | 'failed'>('all');
@@ -146,9 +177,12 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
       } else if (activeTab === 'videos') {
         const res = await api('/api/videos');
         if (res.ok) setVideos(await res.json());
-      } else if (activeTab === 'students') {
-        const res = await api('/api/admin/students');
-        if (res.ok) setStudents(await res.json());
+      } else if (activeTab === 'users') {
+        const res = await api('/api/admin/users');
+        if (res.ok) setUsers(await res.json());
+      } else if (activeTab === 'courses') {
+        const res = await api('/api/courses/admin/all');
+        if (res.ok) setCoursesList(await res.json());
       }
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
@@ -265,9 +299,9 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
       tab: 'videos' as const, bg: 'bg-[#2B2D33]/10', border: 'border-[#2B2D33]/20', iconColor: 'text-[#2B2D33]',
     },
     {
-      key: 'students', label: 'Estudiantes Inscritos',
+      key: 'students', label: 'Usuarios del Sistema',
       value: summary?.enrolledStudentsCount ?? '—', icon: Users,
-      tab: 'students' as const, bg: 'bg-emerald-50', border: 'border-emerald-200', iconColor: 'text-emerald-700',
+      tab: 'users' as const, bg: 'bg-emerald-50', border: 'border-emerald-200', iconColor: 'text-emerald-700',
     },
     {
       key: 'revenue', label: 'Ingresos del Mes',
@@ -279,9 +313,10 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
 
   const tabs = [
     { key: 'summary', label: 'Resumen', icon: LayoutDashboard },
-    { key: 'orders', label: 'Órdenes y Pagos', icon: CreditCard },
-    { key: 'videos', label: 'Aprobación de Videos', icon: Video },
-    { key: 'students', label: 'Estudiantes', icon: Users },
+    { key: 'orders', label: 'Pagos', icon: CreditCard },
+    { key: 'videos', label: 'Videos', icon: Video },
+    { key: 'users', label: 'Usuarios', icon: Users },
+    { key: 'courses', label: 'Cursos', icon: BookOpen },
   ] as const;
 
   /* ------------------------------------------------------------------ */
@@ -339,12 +374,14 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
 
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-2xl text-xs font-bold text-[#636870] hover:text-[#2B2D33] hover:bg-[#E4E6EA] transition cursor-pointer"
-          >
-            Volver al Aula
-          </button>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-2xl text-xs font-bold text-[#636870] hover:text-[#2B2D33] hover:bg-[#E4E6EA] transition cursor-pointer"
+            >
+              Volver al Aula
+            </button>
+          )}
         </div>
       </div>
 
@@ -391,11 +428,12 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
 
           <div className="bg-white rounded-3xl border border-[#D1D5DB] p-6 shadow-sm">
             <h2 className="text-base font-black text-[#2B2D33] mb-4">Accesos Rápidos</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {[
                 { tab: 'orders' as const, icon: CreditCard, title: 'Gestionar Pagos', desc: 'Aprobar o rechazar órdenes' },
                 { tab: 'videos' as const, icon: Video, title: 'Revisar Videos', desc: 'Aprobar o rechazar videos' },
-                { tab: 'students' as const, icon: Users, title: 'Ver Estudiantes', desc: 'Lista de inscripciones activas' },
+                { tab: 'users' as const, icon: Users, title: 'Gestionar Usuarios', desc: 'Usuarios registrados en el sistema' },
+                { tab: 'courses' as const, icon: BookOpen, title: 'Gestionar Cursos', desc: 'Cursos creados en la plataforma' },
               ].map(({ tab, icon: Icon, title, desc }) => (
                 <button
                   key={tab}
@@ -623,17 +661,19 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
       )}
 
       {/* ============================================================ */}
-      {/* TAB ESTUDIANTES                                               */}
+      {/* TAB USUARIOS                                                  */}
       {/* ============================================================ */}
-      {activeTab === 'students' && (
+      {activeTab === 'users' && (
         <div className="bg-white rounded-[2rem] border border-[#D1D5DB] p-6 shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-lg font-black text-[#2B2D33]">Estudiantes Inscritos</h2>
-              <p className="text-xs font-medium text-[#9EA3AC] mt-0.5">Inscripciones activas y completadas</p>
+              <h2 className="text-lg font-black text-[#2B2D33]">Usuarios Registrados</h2>
+              <p className="text-xs font-medium text-[#9EA3AC] mt-0.5">
+                Cuentas de estudiantes, docentes y administradores de EducaSuite 360
+              </p>
             </div>
             <span className="text-xs font-bold bg-[#E4E6EA] text-[#50545C] px-3 py-1 rounded-full">
-              {students.length} inscripciones
+              {users.length} usuarios
             </span>
           </div>
 
@@ -642,42 +682,119 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
               <thead>
                 <tr className="border-b border-[#E4E6EA] text-[#9EA3AC] uppercase tracking-wider font-bold">
                   <th className="pb-3 px-3">ID</th>
-                  <th className="pb-3 px-3">Estudiante</th>
+                  <th className="pb-3 px-3">Usuario</th>
                   <th className="pb-3 px-3">Email</th>
-                  <th className="pb-3 px-3">Curso</th>
+                  <th className="pb-3 px-3">Rol</th>
                   <th className="pb-3 px-3">Estado</th>
-                  <th className="pb-3 px-3">Inscrito el</th>
+                  <th className="pb-3 px-3">Registrado el</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E4E6EA] font-medium text-[#2B2D33]">
                 {loading ? (
                   <tr><td colSpan={6} className="py-8 text-center text-[#9EA3AC]">Cargando...</td></tr>
-                ) : students.length === 0 ? (
-                  <tr><td colSpan={6} className="py-8 text-center text-[#9EA3AC]">No hay estudiantes inscritos.</td></tr>
+                ) : users.length === 0 ? (
+                  <tr><td colSpan={6} className="py-8 text-center text-[#9EA3AC]">No hay usuarios registrados.</td></tr>
                 ) : (
-                  students.map((s) => (
-                    <tr key={s.enrollmentId} className="hover:bg-[#E4E6EA]/40 transition">
-                      <td className="py-4 px-3 font-bold text-[#2B2D33]">#{s.enrollmentId}</td>
-                      <td className="py-4 px-3 font-bold text-[#2B2D33]">{s.studentName}</td>
-                      <td className="py-4 px-3 text-[#636870]">{s.studentEmail}</td>
-                      <td className="py-4 px-3">{s.courseTitle}</td>
+                  users.map((u) => (
+                    <tr key={u.id} className="hover:bg-[#E4E6EA]/40 transition">
+                      <td className="py-4 px-3 font-bold text-[#2B2D33]">#{u.id}</td>
+                      <td className="py-4 px-3 font-bold text-[#2B2D33]">{u.fullName}</td>
+                      <td className="py-4 px-3 text-[#636870]">{u.email}</td>
                       <td className="py-4 px-3">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-bold text-[11px] border ${
-                          s.status === 'completed'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : s.status === 'active'
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-bold text-[10px] uppercase border ${
+                          u.role === 'admin' || u.role === 'superadmin'
+                            ? 'bg-[#F2412C]/10 text-[#F2412C] border-[#F2412C]/20'
+                            : u.role === 'docente' || u.role === 'teacher'
                             ? 'bg-blue-50 text-blue-700 border-blue-200'
-                            : 'bg-rose-50 text-rose-700 border-rose-200'
+                            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                         }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${
-                            s.status === 'completed' ? 'bg-emerald-500'
-                            : s.status === 'active' ? 'bg-blue-500'
-                            : 'bg-rose-500'
-                          }`} />
-                          {s.status.toUpperCase()}
+                          {u.role}
                         </span>
                       </td>
-                      <td className="py-4 px-3 text-[#9EA3AC]">{new Date(s.enrolledAt).toLocaleDateString('es-BO')}</td>
+                      <td className="py-4 px-3">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-bold text-[11px] border ${
+                          u.isActive
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : 'bg-rose-50 text-rose-700 border-rose-200'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${u.isActive ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                          {u.isActive ? 'Activo' : 'Inactivo'}
+                        </span>
+                      </td>
+                      <td className="py-4 px-3 text-[#9EA3AC]">{new Date(u.createdAt).toLocaleDateString('es-BO')}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* TAB CURSOS                                                    */}
+      {/* ============================================================ */}
+      {activeTab === 'courses' && (
+        <div className="bg-white rounded-[2rem] border border-[#D1D5DB] p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-lg font-black text-[#2B2D33]">Cursos del Sistema</h2>
+              <p className="text-xs font-medium text-[#9EA3AC] mt-0.5">
+                Todos los cursos registrados en la plataforma EducaSuite 360
+              </p>
+            </div>
+            <span className="text-xs font-bold bg-[#E4E6EA] text-[#50545C] px-3 py-1 rounded-full">
+              {coursesList.length} cursos
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-[#E4E6EA] text-[#9EA3AC] uppercase tracking-wider font-bold">
+                  <th className="pb-3 px-3">ID</th>
+                  <th className="pb-3 px-3">Título</th>
+                  <th className="pb-3 px-3">Categoría</th>
+                  <th className="pb-3 px-3">Precio</th>
+                  <th className="pb-3 px-3">Min Asistencia</th>
+                  <th className="pb-3 px-3">Estado</th>
+                  <th className="pb-3 px-3">Creado el</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#E4E6EA] font-medium text-[#2B2D33]">
+                {loading ? (
+                  <tr><td colSpan={7} className="py-8 text-center text-[#9EA3AC]">Cargando...</td></tr>
+                ) : coursesList.length === 0 ? (
+                  <tr><td colSpan={7} className="py-8 text-center text-[#9EA3AC]">No hay cursos registrados.</td></tr>
+                ) : (
+                  coursesList.map((c) => (
+                    <tr key={c.id} className="hover:bg-[#E4E6EA]/40 transition">
+                      <td className="py-4 px-3 font-bold text-[#2B2D33]">#{c.id}</td>
+                      <td className="py-4 px-3 font-bold text-[#2B2D33]">{c.title}</td>
+                      <td className="py-4 px-3 text-[#636870]">{c.category || 'General'}</td>
+                      <td className="py-4 px-3 font-bold text-[#2B2D33]">
+                        {Number(c.price) === 0 ? (
+                          <span className="text-emerald-600 font-bold">Gratis</span>
+                        ) : (
+                          `${c.price} ${c.currency}`
+                        )}
+                      </td>
+                      <td className="py-4 px-3">{c.minWatchPercentage ?? 80}%</td>
+                      <td className="py-4 px-3">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-bold text-[11px] border ${
+                          c.status === 'published'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : c.status === 'draft'
+                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                            : 'bg-slate-100 text-slate-700 border-slate-300'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            c.status === 'published' ? 'bg-emerald-500' : 'bg-amber-500'
+                          }`} />
+                          {c.status === 'published' ? 'Publicado' : 'Borrador'}
+                        </span>
+                      </td>
+                      <td className="py-4 px-3 text-[#9EA3AC]">{new Date(c.createdAt).toLocaleDateString('es-BO')}</td>
                     </tr>
                   ))
                 )}

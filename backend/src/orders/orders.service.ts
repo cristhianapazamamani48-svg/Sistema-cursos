@@ -384,10 +384,29 @@ export class OrdersService {
   }
 
   /**
-   * Listar órdenes del usuario autenticado
+   * Listar órdenes del usuario autenticado con datos del curso
    */
   async findUserOrders(userId: number) {
-    return this.db.select().from(orders).where(eq(orders.userId, userId));
+    const result = await this.pool.query(
+      `SELECT
+        o.id,
+        o.user_id as "userId",
+        o.course_id as "courseId",
+        o.amount,
+        o.currency,
+        o.status,
+        o.receipt_url as "receiptUrl",
+        o.confirmed_at as "confirmedAt",
+        o.created_at as "createdAt",
+        c.title as "courseTitle",
+        c.slug as "courseSlug"
+      FROM orders o
+      LEFT JOIN courses c ON c.id = o.course_id
+      WHERE o.user_id = $1
+      ORDER BY o.created_at DESC;`,
+      [userId],
+    );
+    return result.rows;
   }
 
   /**

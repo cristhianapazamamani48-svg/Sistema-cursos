@@ -23,10 +23,12 @@ import {
   User as UserIcon,
   PlayCircle,
   SearchX,
-  RotateCcw
+  RotateCcw,
+  CreditCard,
+  ExternalLink
 } from 'lucide-react';
 
-import Sidebar from './Sidebar';
+import Sidebar, { type AppTab, type AdminSubTab } from './Sidebar';
 import AdminPanel from './AdminPanel';
 import YouTubeTracker from './YouTubeTracker';
 import TeacherCoursesView from './TeacherCoursesView';
@@ -145,7 +147,8 @@ interface CourseDetail {
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState<'catalog' | 'course-detail' | 'my-courses' | 'classroom' | 'admin'>('catalog');
+  const [activeTab, setActiveTab] = useState<AppTab>('catalog');
+  const [adminSubTab, setAdminSubTab] = useState<AdminSubTab>('summary');
   
   // Catálogo y cursos
   const [catalog, setCatalog] = useState<CourseSummary[]>([]);
@@ -153,6 +156,8 @@ export default function App() {
   const [catalogPriceFilter, setCatalogPriceFilter] = useState<'all' | 'free' | 'paid'>('all');
   const [isCatalogLoading, setIsCatalogLoading] = useState(false);
   const [myCourses, setMyCourses] = useState<EnrolledCourse[]>([]);
+  const [myOrders, setMyOrders] = useState<any[]>([]);
+  const [selectedReceiptUrl, setSelectedReceiptUrl] = useState<string | null>(null);
   const [courseDetail, setCourseDetail] = useState<CourseDetail | null>(null);
   const [classroomData, setClassroomData] = useState<ClassroomData | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<ClassroomLesson | null>(null);
@@ -180,9 +185,12 @@ export default function App() {
     setSelectedLesson(null);
     setExpandedModules([]);
     setMyCourses([]);
+    setMyOrders([]);
+    setSelectedReceiptUrl(null);
     setCourseDetail(null);
     setPendingOrders([]);
     setTeacherSubTab('teaching');
+    setAdminSubTab('summary');
     setIsWizardOpenInTeacherView(false);
     setIsMobileMenuOpen(false);
     setEmail('');
@@ -206,15 +214,63 @@ export default function App() {
     return () => setOnUnauthorized(null);
   }, []);
 
+  // Navegación según el rol al iniciar sesión o cargar página
+  const navigateToRoleHome = (user: User | null) => {
+    if (!user) {
+      setActiveTab('catalog');
+      return;
+    }
+    const role = user.role;
+    if (role === 'admin' || role === 'superadmin') {
+      setActiveTab('admin');
+      setAdminSubTab('summary');
+    } else if (role === 'docente' || role === 'teacher') {
+      setActiveTab('teacher-courses');
+    } else {
+      // Estudiante
+      setActiveTab('my-courses');
+      loadMyCourses();
+      loadMyOrders();
+    }
+  };
+
+  // Redirección estricta si un rol abre una vista que no le corresponde (Tarea B)
+  useEffect(() => {
+    if (!currentUser) {
+      if (activeTab !== 'catalog' && activeTab !== 'course-detail') {
+        setActiveTab('catalog');
+      }
+      return;
+    }
+
+    const role = currentUser.role;
+    if (role === 'admin' || role === 'superadmin') {
+      if (activeTab !== 'admin') {
+        setActiveTab('admin');
+        setAdminSubTab('summary');
+      }
+    } else if (role === 'docente' || role === 'teacher') {
+      if (activeTab !== 'teacher-courses' && activeTab !== 'create-course') {
+        setActiveTab('teacher-courses');
+      }
+    } else {
+      // Estudiante
+      const allowedStudentTabs: AppTab[] = ['my-courses', 'my-orders', 'catalog', 'course-detail', 'classroom'];
+      if (!allowedStudentTabs.includes(activeTab)) {
+        setActiveTab('my-courses');
+      }
+    }
+  }, [currentUser, activeTab]);
+
   // Navegación Sidebar y Control Responsive
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [createCourseTrigger, setCreateCourseTrigger] = useState(0);
   const [isWizardOpenInTeacherView, setIsWizardOpenInTeacherView] = useState(false);
 
   const handleCreateCourseFromSidebar = () => {
-    setActiveTab('my-courses');
-    setTeacherSubTab('teaching');
+    setActiveTab('create-course');
     setCreateCourseTrigger((prev) => prev + 1);
+    setIsMobileMenuOpen(false);
   };
 
   useEffect(() => {
@@ -246,6 +302,7 @@ export default function App() {
         if (data.csrfToken) {
           setGlobalCsrfToken(data.csrfToken);
         }
+        navigateToRoleHome(data.user);
       } else {
         setCurrentUser(null);
       }
@@ -300,6 +357,7 @@ export default function App() {
       const res = await api('/api/orders/my');
       if (res.ok) {
         const data = await res.json();
+        setMyOrders(data);
         setPendingOrders(data.filter((o: any) => o.status === 'pending'));
       }
     } catch (err) {
@@ -456,6 +514,7 @@ export default function App() {
       setEmail('');
       setPassword('');
       showToast('success', `¡Bienvenido, ${data.user.fullName}!`);
+      navigateToRoleHome(data.user);
     } catch (err: any) {
       setAuthMsg({ type: 'error', text: err.message });
     }
@@ -859,11 +918,17 @@ export default function App() {
       <Sidebar
         currentUser={currentUser}
         activeTab={activeTab}
-        isCreatingCourse={isWizardOpenInTeacherView}
+        adminTab={adminSubTab}
+        isCreatingCourse={isWizardOpenInTeacherView || activeTab === 'create-course'}
         hasActiveClassroom={Boolean(classroomData)}
-        onNavigate={(tab) => {
+        onNavigate={(tab, aTab) => {
+          if (aTab) {
+            setAdminSubTab(aTab);
+          }
           if (tab === 'my-courses') {
             loadMyCourses();
+          } else if (tab === 'my-orders') {
+            loadMyOrders();
           }
           setActiveTab(tab);
           setIsMobileMenuOpen(false);
@@ -918,8 +983,8 @@ export default function App() {
 
       {/* CONTENIDO PRINCIPAL POR VISTA */}
       <main className="flex-1 p-4 sm:p-8 max-w-7xl w-full mx-auto">
-        {/* VISTA 1: CATÁLOGO DE CURSOS (V2.1) */}
-        {activeTab === 'catalog' && (
+        {/* VISTA 1: CATÁLOGO DE CURSOS (V2.1 - Visitante / Estudiante) */}
+        {activeTab === 'catalog' && (!currentUser || currentUser.role === 'estudiante' || currentUser.role === 'student') && (
           <div className="space-y-8 animate-fade-in">
             {/* Encabezado con Propuesta de Valor y Buscador Integrado */}
             <div className="relative rounded-3xl bg-[#2B2D33] border border-[#363940] p-6 sm:p-10 shadow-sm text-white space-y-6">
@@ -1156,7 +1221,7 @@ export default function App() {
         )}
 
         {/* VISTA 2: DETALLE DEL CURSO Y TEMARIO */}
-        {activeTab === 'course-detail' && courseDetail && (
+        {activeTab === 'course-detail' && courseDetail && (!currentUser || currentUser.role === 'estudiante' || currentUser.role === 'student') && (
           <div className="space-y-8 animate-fade-in max-w-5xl mx-auto">
             <button
               onClick={() => setActiveTab('catalog')}
@@ -1258,67 +1323,151 @@ export default function App() {
           </div>
         )}
 
-        {/* VISTA 3: MIS CURSOS (DOCENTE / ADMIN / ESTUDIANTE) */}
-        {activeTab === 'my-courses' && currentUser && (
+        {/* VISTA: MIS CURSOS (ESTUDIANTE) */}
+        {activeTab === 'my-courses' && currentUser && (currentUser.role === 'estudiante' || currentUser.role === 'student') && (
+          <div className="space-y-8 animate-fade-in">
+            <div>
+              <h1 className="text-2xl font-black text-[#2B2D33]">Mis Cursos</h1>
+              <p className="text-xs text-[#555861]">Continúa con tus capacitaciones y revisa tu avance en tiempo real</p>
+            </div>
+
+            {renderEnrolledCourseCards(myCourses)}
+          </div>
+        )}
+
+        {/* VISTA: MIS PAGOS (ESTUDIANTE) */}
+        {activeTab === 'my-orders' && currentUser && (currentUser.role === 'estudiante' || currentUser.role === 'student') && (
           <div className="space-y-6 animate-fade-in">
-            {['docente', 'admin', 'superadmin'].includes(currentUser.role) ? (
-              <div className="space-y-6">
-                {/* Selector de subvista solo si el staff tiene cursos como estudiante */}
-                {myCourses.length > 0 && (
-                  <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-[#D1D5DB] w-fit shadow-xs">
-                    <button
-                      onClick={() => setTeacherSubTab('teaching')}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-                        teacherSubTab === 'teaching'
-                          ? 'bg-[#F2412C] text-white shadow-md shadow-[#F2412C]/30'
-                          : 'text-[#555861] hover:text-white hover:bg-[#363940]/60'
-                      }`}
-                    >
-                      🎓 Gestión de Mis Cursos
-                    </button>
-                    <button
-                      onClick={() => setTeacherSubTab('enrolled')}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-                        teacherSubTab === 'enrolled'
-                          ? 'bg-[#F2412C] text-white shadow-md shadow-[#F2412C]/30'
-                          : 'text-[#555861] hover:text-white hover:bg-[#363940]/60'
-                      }`}
-                    >
-                      📚 Cursos Inscritos como Estudiante ({myCourses.length})
-                    </button>
-                  </div>
-                )}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-black text-[#2B2D33]">Mis Pagos</h1>
+                <p className="text-xs text-[#555861]">Historial de compras, transferencias y comprobantes reportados</p>
+              </div>
+              <button
+                onClick={loadMyOrders}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-100 text-[#2B2D33] text-xs font-bold rounded-xl border border-[#D1D5DB] transition cursor-pointer self-start sm:self-auto"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Actualizar</span>
+              </button>
+            </div>
 
-                {teacherSubTab === 'teaching' ? (
-                  <TeacherCoursesView
-                    currentUser={currentUser}
-                    onViewAsStudent={loadCourseDetail}
-                    showToast={showToast}
-                    openCreateTrigger={createCourseTrigger}
-                    onWizardStateChange={setIsWizardOpenInTeacherView}
-                  />
-                ) : (
-                  <div className="space-y-6">
-                    <div>
-                      <h2 className="text-xl font-black text-[#2B2D33]">Mis Cursos Inscritos</h2>
-                      <p className="text-xs text-[#555861]">Tus inscripciones y avance como estudiante</p>
-                    </div>
-
-                    {renderEnrolledCourseCards(myCourses)}
-                  </div>
-                )}
+            {myOrders.length === 0 ? (
+              <div className="bg-white border border-[#D1D5DB] rounded-3xl p-10 sm:p-14 text-center space-y-4 max-w-lg mx-auto shadow-xs">
+                <div className="w-16 h-16 rounded-2xl bg-[#E4E6EA] flex items-center justify-center mx-auto text-[#555861]">
+                  <CreditCard className="w-8 h-8" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-lg font-bold text-[#2B2D33]">No tienes órdenes de pago</h3>
+                  <p className="text-xs text-[#555861] leading-relaxed max-w-sm mx-auto">
+                    Al adquirir cursos de pago o registrar transferencias bancarias, podrás hacer seguimiento a tus comprobantes desde esta sección.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setActiveTab('catalog')}
+                  className="inline-flex items-center gap-2 bg-[#F2412C] hover:bg-[#D93522] text-white text-xs font-bold py-3 px-6 rounded-xl transition shadow-md shadow-[#F2412C]/20 cursor-pointer"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  <span>Explorar Catálogo</span>
+                </button>
               </div>
             ) : (
-              /* VISTA PARA ESTUDIANTES (V2.2) */
-              <div className="space-y-8">
-                <div>
-                  <h1 className="text-2xl font-black text-[#2B2D33]">Mis Cursos</h1>
-                  <p className="text-xs text-[#555861]">Continúa con tus capacitaciones y revisa tu avance en tiempo real</p>
-                </div>
+              <div className="bg-white border border-[#D1D5DB] rounded-3xl overflow-hidden shadow-xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[#F8F9FA] border-b border-[#D1D5DB] text-[#555861] uppercase tracking-wider text-[10px] font-black">
+                      <tr>
+                        <th className="py-3.5 px-4 sm:px-6">Nº Orden</th>
+                        <th className="py-3.5 px-4">Curso</th>
+                        <th className="py-3.5 px-4">Monto</th>
+                        <th className="py-3.5 px-4">Estado</th>
+                        <th className="py-3.5 px-4">Fecha</th>
+                        <th className="py-3.5 px-4 text-center">Comprobante</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#E4E6EA] font-medium text-[#2B2D33]">
+                      {myOrders.map((order) => {
+                        const isPending = order.status === 'pending';
+                        const isPaid = order.status === 'paid' || order.status === 'completed';
+                        const isRejected = order.status === 'rejected';
 
-                {renderEnrolledCourseCards(myCourses)}
+                        return (
+                          <tr key={order.id} className="hover:bg-slate-50/70 transition">
+                            <td className="py-4 px-4 sm:px-6 font-mono font-bold text-[#2B2D33]">
+                              #{order.id}
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="font-bold text-[#2B2D33] line-clamp-1 max-w-xs">
+                                {order.courseTitle || order.courseSlug || `Curso #${order.courseId}`}
+                              </div>
+                            </td>
+                            <td className="py-4 px-4 font-black text-[#2B2D33]">
+                              {order.amount} {order.currency || 'BOB'}
+                            </td>
+                            <td className="py-4 px-4">
+                              {isPending ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300">
+                                  <Clock className="w-3 h-3 text-amber-600" />
+                                  Pendiente
+                                </span>
+                              ) : isPaid ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-900 border border-emerald-300">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                  Aprobado
+                                </span>
+                              ) : isRejected ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-100 text-rose-900 border border-rose-300">
+                                  <AlertCircle className="w-3 h-3 text-rose-600" />
+                                  Rechazado
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#E4E6EA] text-[#555861]">
+                                  {order.status}
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-4 px-4 text-[#555861] text-[11px]">
+                              {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : '—'}
+                            </td>
+                            <td className="py-4 px-4 text-center">
+                              {order.receiptUrl ? (
+                                <button
+                                  onClick={() => setSelectedReceiptUrl(order.receiptUrl)}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-[#2B2D33] hover:text-white text-[#2B2D33] font-bold text-[11px] border border-[#D1D5DB] transition cursor-pointer"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                  <span>Ver Comprobante</span>
+                                </button>
+                              ) : (
+                                <span className="text-[#9EA3AC] text-[11px] italic">Sin comprobante</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* VISTA: DOCENTE (MIS CURSOS CREADOS Y CREAR CURSO) */}
+        {(activeTab === 'teacher-courses' || activeTab === 'create-course') && currentUser && (currentUser.role === 'docente' || currentUser.role === 'teacher') && (
+          <div className="space-y-6 animate-fade-in">
+            <TeacherCoursesView
+              currentUser={currentUser}
+              onViewAsStudent={loadCourseDetail}
+              showToast={showToast}
+              openCreateTrigger={createCourseTrigger}
+              onWizardStateChange={(isOpen) => {
+                setIsWizardOpenInTeacherView(isOpen);
+                if (!isOpen && activeTab === 'create-course') {
+                  setActiveTab('teacher-courses');
+                }
+              }}
+            />
           </div>
         )}
 
@@ -1700,7 +1849,7 @@ export default function App() {
         {/* VISTA 5: PANEL ADMINISTRATIVO */}
         {activeTab === 'admin' && currentUser && ['admin', 'superadmin'].includes(currentUser.role) && (
           <div className="animate-fade-in">
-            <AdminPanel onClose={() => setActiveTab('catalog')} />
+            <AdminPanel initialTab={adminSubTab} />
           </div>
         )}
       </main>
@@ -1733,22 +1882,30 @@ export default function App() {
               <span className="text-[10px] font-extrabold uppercase text-[#555861] tracking-wider flex items-center gap-1">
                 <UserCheck className="w-3 h-3 text-[#F2412C]" /> Cuentas de Demostración
               </span>
-              <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="grid grid-cols-3 gap-2 text-xs">
                 <button
                   type="button"
                   onClick={() => handleQuickLogin('estudiante@demo.com', 'Estudiante2024!')}
                   className="bg-[#2B2D33] hover:bg-[#363940] text-slate-200 p-2 rounded-xl border border-[#363940] text-left transition"
                 >
                   <strong className="block text-[#F2412C]">Estudiante</strong>
-                  <span className="text-[10px] text-[#555861]">estudiante@demo.com</span>
+                  <span className="text-[10px] text-[#555861] truncate block">estudiante@demo.com</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('docente@demo.com', 'Docente2024!')}
+                  className="bg-[#2B2D33] hover:bg-[#363940] text-slate-200 p-2 rounded-xl border border-[#363940] text-left transition"
+                >
+                  <strong className="block text-blue-400">Docente</strong>
+                  <span className="text-[10px] text-[#555861] truncate block">docente@demo.com</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleQuickLogin('admin@demo.com', 'Admin2024!')}
                   className="bg-[#2B2D33] hover:bg-[#363940] text-slate-200 p-2 rounded-xl border border-[#363940] text-left transition"
                 >
-                  <strong className="block text-purple-400">Administrador</strong>
-                  <span className="text-[10px] text-[#555861]">admin@demo.com</span>
+                  <strong className="block text-purple-400">Admin</strong>
+                  <span className="text-[10px] text-[#555861] truncate block">admin@demo.com</span>
                 </button>
               </div>
             </div>
@@ -1824,6 +1981,41 @@ export default function App() {
                 {authMode === 'login'
                   ? '¿No tienes cuenta? Regístrate aquí'
                   : '¿Ya tienes cuenta? Inicia sesión aquí'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Vista Previa de Comprobante (Estudiante) */}
+      {selectedReceiptUrl && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-[#D1D5DB] rounded-3xl max-w-2xl w-full p-6 shadow-2xl relative space-y-4 animate-fade-in">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E4E6EA]">
+              <div className="flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-[#F2412C]" />
+                <h3 className="text-base font-black text-[#2B2D33]">Comprobante de Pago</h3>
+              </div>
+              <button
+                onClick={() => setSelectedReceiptUrl(null)}
+                className="p-1 rounded-xl text-[#555861] hover:text-[#2B2D33] hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="bg-[#F8F9FA] rounded-2xl p-4 flex items-center justify-center max-h-[70vh] overflow-auto border border-[#D1D5DB]">
+              <img
+                src={selectedReceiptUrl}
+                alt="Comprobante"
+                className="max-h-[60vh] max-w-full rounded-xl object-contain shadow-sm"
+              />
+            </div>
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setSelectedReceiptUrl(null)}
+                className="px-4 py-2 bg-[#2B2D33] hover:bg-[#1E2024] text-white text-xs font-bold rounded-xl transition cursor-pointer"
+              >
+                Cerrar
               </button>
             </div>
           </div>
