@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Body,
   UseGuards,
@@ -15,6 +16,7 @@ import {
   createLessonSchema,
   UpdateLessonDto,
   updateLessonSchema,
+  reorderLessonsSchema,
   CreateVideoDto,
   createVideoSchema,
   ReviewVideoDto,
@@ -110,6 +112,30 @@ export class LessonsController {
       });
     }
     return this.lessonsService.updateLesson(id, parseResult.data);
+  }
+
+  @Delete('lessons/:id')
+  @UseGuards(SessionGuard, RolesGuard)
+  @Roles('admin', 'superadmin', 'docente')
+  async deleteLesson(@Param('id', ParseIntPipe) id: number) {
+    return this.lessonsService.deleteLesson(id);
+  }
+
+  @Post('lessons/modules/:moduleId/reorder')
+  @UseGuards(SessionGuard, RolesGuard)
+  @Roles('admin', 'superadmin', 'docente')
+  async reorderLessons(
+    @Param('moduleId', ParseIntPipe) moduleId: number,
+    @Body() body: unknown,
+  ) {
+    const parseResult = reorderLessonsSchema.safeParse(body);
+    if (!parseResult.success) {
+      throw new BadRequestException({
+        message: 'Lista de IDs de lecciones inválida',
+        errors: parseResult.error.format(),
+      });
+    }
+    return this.lessonsService.reorderLessons(moduleId, parseResult.data.lessonIds);
   }
 
   // 3. RECURSOS

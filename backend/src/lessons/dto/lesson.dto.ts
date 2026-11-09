@@ -32,6 +32,11 @@ export type CreateLessonDto = z.infer<typeof createLessonSchema>;
 export const updateLessonSchema = createLessonSchema.partial();
 export type UpdateLessonDto = z.infer<typeof updateLessonSchema>;
 
+export const reorderLessonsSchema = z.object({
+  lessonIds: z.array(z.coerce.number().positive()).min(1),
+});
+export type ReorderLessonsDto = z.infer<typeof reorderLessonsSchema>;
+
 export const createResourceSchema = z.object({
   title: z.string().min(2, 'El título del recurso es requerido').trim(),
   type: z.enum(resourceTypeValues),

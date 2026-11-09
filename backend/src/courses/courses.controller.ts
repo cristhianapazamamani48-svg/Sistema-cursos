@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Body,
   UseGuards,
@@ -19,6 +20,8 @@ import {
   assignDocenteSchema,
   CreateModuleDto,
   createModuleSchema,
+  updateModuleSchema,
+  reorderModulesSchema,
 } from './dto/course.dto';
 import { SessionGuard } from '../auth/guards/session.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -137,5 +140,53 @@ export class CoursesController {
       });
     }
     return this.coursesService.createModule(id, parseResult.data);
+  }
+
+  @Get(':id/curriculum')
+  @UseGuards(SessionGuard, RolesGuard)
+  @Roles('admin', 'superadmin', 'docente')
+  async getCourseCurriculum(@Param('id', ParseIntPipe) id: number) {
+    return this.coursesService.getCourseCurriculum(id);
+  }
+
+  @Patch('modules/:moduleId')
+  @UseGuards(SessionGuard, RolesGuard)
+  @Roles('admin', 'superadmin', 'docente')
+  async updateModule(
+    @Param('moduleId', ParseIntPipe) moduleId: number,
+    @Body() body: unknown,
+  ) {
+    const parseResult = updateModuleSchema.safeParse(body);
+    if (!parseResult.success) {
+      throw new BadRequestException({
+        message: 'Datos de módulo inválidos',
+        errors: parseResult.error.format(),
+      });
+    }
+    return this.coursesService.updateModule(moduleId, parseResult.data);
+  }
+
+  @Delete('modules/:moduleId')
+  @UseGuards(SessionGuard, RolesGuard)
+  @Roles('admin', 'superadmin', 'docente')
+  async deleteModule(@Param('moduleId', ParseIntPipe) moduleId: number) {
+    return this.coursesService.deleteModule(moduleId);
+  }
+
+  @Post(':id/modules/reorder')
+  @UseGuards(SessionGuard, RolesGuard)
+  @Roles('admin', 'superadmin', 'docente')
+  async reorderModules(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: unknown,
+  ) {
+    const parseResult = reorderModulesSchema.safeParse(body);
+    if (!parseResult.success) {
+      throw new BadRequestException({
+        message: 'Lista de IDs de módulos inválida',
+        errors: parseResult.error.format(),
+      });
+    }
+    return this.coursesService.reorderModules(id, parseResult.data.moduleIds);
   }
 }

@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { api } from './api';
 import CourseFormWizard from './CourseFormWizard';
+import CurriculumBuilder from './CurriculumBuilder';
 
 export interface ManagedCourse {
   id: number;
@@ -65,6 +66,10 @@ export default function TeacherCoursesView({
   // Control del Wizard en 3 Pasos (Nuevo Curso o Editar)
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [wizardCourse, setWizardCourse] = useState<ManagedCourse | null>(null);
+
+  // Control del Constructor de Temario
+  const [selectedCourseForCurriculum, setSelectedCourseForCurriculum] =
+    useState<ManagedCourse | null>(null);
 
   // Estado para el toggle de publicación directo
   const [togglingStatusId, setTogglingStatusId] = useState<number | null>(null);
@@ -147,6 +152,19 @@ export default function TeacherCoursesView({
     if (statusFilter === 'all') return matchesSearch;
     return matchesSearch && c.status === statusFilter;
   });
+
+  if (selectedCourseForCurriculum) {
+    return (
+      <CurriculumBuilder
+        course={selectedCourseForCurriculum}
+        onBack={() => {
+          setSelectedCourseForCurriculum(null);
+          loadCourses();
+        }}
+        showToast={showToast}
+      />
+    );
+  }
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -461,9 +479,19 @@ export default function TeacherCoursesView({
                   </div>
                 </div>
 
-                {/* BOTONES DE ACCIÓN: Editar / Publicar / Ver como estudiante */}
-                <div className="p-4 bg-slate-950/50 border-t border-slate-800/80 grid grid-cols-3 gap-2">
-                  {/* Botón 1: Editar (Abre el Wizard reutilizable) */}
+                {/* BOTONES DE ACCIÓN: Temario / Editar / Publicar / Ver como estudiante */}
+                <div className="p-4 bg-slate-950/50 border-t border-slate-800/80 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {/* Botón 1: Temario (Constructor de temario) */}
+                  <button
+                    onClick={() => setSelectedCourseForCurriculum(course)}
+                    className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-blue-600/30 hover:bg-blue-600 text-blue-200 hover:text-white border border-blue-500/40 text-xs font-bold transition cursor-pointer"
+                    title="Construir temario: agregar, editar, borrar y ordenar módulos y lecciones"
+                  >
+                    <Layers className="w-3.5 h-3.5 text-blue-300" />
+                    <span>Temario</span>
+                  </button>
+
+                  {/* Botón 2: Editar (Abre el Wizard reutilizable) */}
                   <button
                     onClick={() => handleOpenEdit(course)}
                     className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold transition cursor-pointer border border-slate-700/60"
@@ -473,7 +501,7 @@ export default function TeacherCoursesView({
                     <span>Editar</span>
                   </button>
 
-                  {/* Botón 2: Publicar / Borrador */}
+                  {/* Botón 3: Publicar / Borrador */}
                   <button
                     onClick={() => handleToggleStatus(course)}
                     disabled={isToggling}
@@ -499,10 +527,10 @@ export default function TeacherCoursesView({
                     )}
                   </button>
 
-                  {/* Botón 3: Ver como estudiante */}
+                  {/* Botón 4: Ver como estudiante */}
                   <button
                     onClick={() => onViewAsStudent(course.slug)}
-                    className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/40 text-xs font-bold transition cursor-pointer"
+                    className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/80 text-xs font-bold transition cursor-pointer"
                     title="Previsualizar temario y contenido como estudiante"
                   >
                     <Eye className="w-3.5 h-3.5" />

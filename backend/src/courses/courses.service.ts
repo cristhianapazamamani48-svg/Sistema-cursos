@@ -24,6 +24,7 @@ import {
   UpdateCourseDto,
   AssignDocenteDto,
   CreateModuleDto,
+  UpdateModuleDto,
 } from './dto/course.dto';
 
 @Injectable()
@@ -302,6 +303,141 @@ export class CoursesService {
       .returning();
 
     return newModule;
+  }
+
+  /**
+   * Obtener temario completo del curso para constructor y edición
+   */
+  async getCourseCurriculum(courseId: number) {
+    const [course] = await this.db
+      .select()
+      .from(courses)
+      .where(eq(courses.id, courseId))
+      .limit(1);
+
+    if (!course) {
+      throw new NotFoundException(`Curso #${courseId} no encontrado`);
+    }
+
+    const courseModules = await this.db
+      .select()
+      .from(modules)
+      .where(and(eq(modules.courseId, course.id), isNull(modules.deletedAt)))
+      .orderBy(modules.orderIndex);
+
+    const modulesWithLessons = await Promise.all(
+      courseModules.map(async (mod) => {
+        const rows = await this.pool.query(
+          `SELECT l.id, l.module_id as "moduleId", l.title, l.description, l.order_index as "orderIndex",
+                  l.status, l.video_id as "videoId", l.created_at as "createdAt",
+                  v.provider, v.provider_ref as "providerRef", v.duration_seconds as "durationSeconds",
+                  v.status as "videoStatus", v.title as "videoTitle"
+           FROM lessons l
+           LEFT JOIN videos v ON v.id = l.video_id
+           WHERE l.module_id = $1 AND l.deleted_at IS NULL
+           ORDER BY l.order_index ASC;`,
+          [mod.id],
+        );
+
+        return {
+          id: Number(mod.id),
+          courseId: Number(mod.courseId),
+          title: mod.title,
+          description: mod.description,
+          orderIndex: mod.orderIndex,
+          lessons: rows.rows.map((r) => ({
+            id: Number(r.id),
+            moduleId: Number(r.moduleId),
+            title: r.title,
+            description: r.description,
+            orderIndex: Number(r.orderIndex),
+            status: r.status,
+            videoId: r.videoId ? Number(r.videoId) : null,
+            video: r.videoId
+              ? {
+                  id: Number(r.videoId),
+                  provider: r.provider,
+                  providerRef: r.providerRef,
+                  durationSeconds: r.durationSeconds,
+                  status: r.videoStatus,
+                  title: r.videoTitle,
+                }
+              : null,
+          })),
+        };
+      }),
+    );
+
+    return {
+      course: {
+        id: Number(course.id),
+        title: course.title,
+        slug: course.slug,
+        status: course.status,
+      },
+      modules: modulesWithLessons,
+    };
+  }
+
+  /**
+   * Actualizar módulo
+   */
+  async updateModule(moduleId: number, dto: UpdateModuleDto) {
+    const [mod] = await this.db.select().from(modules).where(eq(modules.id, moduleId)).limit(1);
+    if (!mod) {
+      throw new NotFoundException(`Módulo #${moduleId} no encontrado`);
+    }
+
+    const [updated] = await this.db
+      .update(modules)
+      .set({
+        ...dto,
+        updatedAt: new Date(),
+      })
+      .where(eq(modules.id, moduleId))
+      .returning();
+
+    return updated;
+  }
+
+  /**
+   * Eliminar suavemente un módulo y sus lecciones
+   */
+  async deleteModule(moduleId: number) {
+    const [mod] = await this.db.select().from(modules).where(eq(modules.id, moduleId)).limit(1);
+    if (!mod) {
+      throw new NotFoundException(`Módulo #${moduleId} no encontrado`);
+    }
+
+    const now = new Date();
+    const [deleted] = await this.db
+      .update(modules)
+      .set({ deletedAt: now, updatedAt: now })
+      .where(eq(modules.id, moduleId))
+      .returning();
+
+    await this.db
+      .update(lessons)
+      .set({ deletedAt: now, updatedAt: now })
+      .where(eq(lessons.moduleId, moduleId));
+
+    return deleted;
+  }
+
+  /**
+   * Reordenar módulos de un curso
+   */
+  async reorderModules(courseId: number, moduleIds: number[]) {
+    for (let i = 0; i < moduleIds.length; i++) {
+      await this.db
+        .update(modules)
+        .set({
+          orderIndex: i + 1,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(modules.id, moduleIds[i]), eq(modules.courseId, courseId)));
+    }
+    return { success: true, count: moduleIds.length };
   }
 
   /**

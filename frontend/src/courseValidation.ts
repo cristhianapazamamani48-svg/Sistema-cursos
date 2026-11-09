@@ -87,3 +87,4 @@ export const POPULAR_CATEGORIES = [
   'Salud y Seguridad',
   'Educación y Docencia',
 ] as const;
+

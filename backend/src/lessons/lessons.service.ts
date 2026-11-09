@@ -165,6 +165,43 @@ export class LessonsService {
   }
 
   /**
+   * Eliminar suavemente una lección
+   */
+  async deleteLesson(lessonId: number) {
+    const [lesson] = await this.db.select().from(lessons).where(eq(lessons.id, lessonId)).limit(1);
+    if (!lesson) {
+      throw new NotFoundException(`Lección #${lessonId} no encontrada`);
+    }
+
+    const [deleted] = await this.db
+      .update(lessons)
+      .set({
+        deletedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(lessons.id, lessonId))
+      .returning();
+
+    return deleted;
+  }
+
+  /**
+   * Reordenar lecciones de un módulo
+   */
+  async reorderLessons(moduleId: number, lessonIds: number[]) {
+    for (let i = 0; i < lessonIds.length; i++) {
+      await this.db
+        .update(lessons)
+        .set({
+          orderIndex: i + 1,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(lessons.id, lessonIds[i]), eq(lessons.moduleId, moduleId)));
+    }
+    return { success: true, count: lessonIds.length };
+  }
+
+  /**
    * Obtener lección con su video y recursos
    * Regla de seguridad: verificar inscripción activa/completada o rol de staff, y lección published
    */

@@ -29,3 +29,11 @@ export const createModuleSchema = z.object({
   orderIndex: z.coerce.number().int().min(0),
 });
 export type CreateModuleDto = z.infer<typeof createModuleSchema>;
+
+export const updateModuleSchema = createModuleSchema.partial();
+export type UpdateModuleDto = z.infer<typeof updateModuleSchema>;
+
+export const reorderModulesSchema = z.object({
+  moduleIds: z.array(z.coerce.number().positive()).min(1),
+});
+export type ReorderModulesDto = z.infer<typeof reorderModulesSchema>;
