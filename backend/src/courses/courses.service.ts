@@ -1,4 +1,4 @@
-import {
+﻿import {
   Injectable,
   Inject,
   NotFoundException,
@@ -331,7 +331,7 @@ export class CoursesService {
           `SELECT l.id, l.module_id as "moduleId", l.title, l.description, l.order_index as "orderIndex",
                   l.status, l.video_id as "videoId", l.created_at as "createdAt",
                   v.provider, v.provider_ref as "providerRef", v.duration_seconds as "durationSeconds",
-                  v.status as "videoStatus", v.title as "videoTitle"
+                  v.status as "videoStatus", v.title as "videoTitle", v.rejection_reason as "rejectionReason"
            FROM lessons l
            LEFT JOIN videos v ON v.id = l.video_id
            WHERE l.module_id = $1 AND l.deleted_at IS NULL
@@ -360,7 +360,7 @@ export class CoursesService {
                   providerRef: r.providerRef,
                   durationSeconds: r.durationSeconds,
                   status: r.videoStatus,
-                  title: r.videoTitle,
+                  title: r.videoTitle, rejectionReason: r.rejectionReason,
                 }
               : null,
           })),

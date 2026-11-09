@@ -4,19 +4,25 @@ import { lessonStatusValues, resourceTypeValues } from '../../database/schema/le
 
 export const createVideoSchema = z.object({
   title: z.string().min(2, 'El título del video es requerido').trim(),
-  provider: z.enum(videoProviderValues),
+  provider: z.enum(videoProviderValues).default('youtube'),
   providerRef: z.string().min(1, 'La referencia del proveedor es requerida').trim(),
-  durationSeconds: z.coerce.number().int().positive('La duración debe ser mayor a 0 segundos'),
 });
 export type CreateVideoDto = z.infer<typeof createVideoSchema>;
 
-export const reviewVideoSchema = z.object({
-  status: z.enum(['approved', 'rejected']),
-  rejectionReason: z.string().optional(),
-}).refine(
-  (data) => (data.status !== 'rejected' || !!data.rejectionReason),
-  { message: 'El motivo de rechazo es obligatorio si el video es rechazado', path: ['rejectionReason'] }
-);
+export const reviewVideoSchema = z
+  .object({
+    status: z.enum(['approved', 'rejected']),
+    durationSeconds: z.coerce.number().int().positive('La duración debe ser mayor a 0 segundos').optional(),
+    rejectionReason: z.string().optional(),
+  })
+  .refine(
+    (data) => (data.status !== 'rejected' || !!data.rejectionReason),
+    { message: 'El motivo de rechazo es obligatorio si el video es rechazado', path: ['rejectionReason'] }
+  )
+  .refine(
+    (data) => (data.status !== 'approved' || (data.durationSeconds !== undefined && data.durationSeconds > 0)),
+    { message: 'Debes definir la duración del video (en segundos) al aprobarlo', path: ['durationSeconds'] }
+  );
 export type ReviewVideoDto = z.infer<typeof reviewVideoSchema>;
 
 export const createLessonSchema = z.object({

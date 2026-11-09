@@ -35,7 +35,7 @@ export class LessonsService {
         title: dto.title,
         provider: dto.provider,
         providerRef: dto.providerRef,
-        durationSeconds: dto.durationSeconds,
+        durationSeconds: 0, // El docente no fija la duración; se define al aprobar
         uploadedBy: uploaderId,
         status: 'pending',
       })
@@ -66,6 +66,7 @@ export class LessonsService {
       .update(videos)
       .set({
         status: dto.status,
+        durationSeconds: dto.status === 'approved' && dto.durationSeconds ? dto.durationSeconds : video.durationSeconds,
         rejectionReason: dto.status === 'rejected' ? dto.rejectionReason : null,
         reviewedBy: reviewerId,
         reviewedAt: now,
@@ -80,7 +81,7 @@ export class LessonsService {
       action: dto.status === 'approved' ? 'video.approved' : 'video.rejected',
       entityType: 'videos',
       entityId: videoId,
-      metadata: { reason: dto.rejectionReason },
+      metadata: { reason: dto.rejectionReason, durationSeconds: dto.durationSeconds },
     });
 
     // Si se rechaza, archivar únicamente las lecciones publicadas que lo usaban

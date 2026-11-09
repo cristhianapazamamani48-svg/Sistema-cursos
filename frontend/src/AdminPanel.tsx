@@ -53,6 +53,11 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
   const [rejectingVideoId, setRejectingVideoId] = useState<number | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
 
+  // Modal para aprobar video con duración fijada por el admin
+  const [approvingVideo, setApprovingVideo] = useState<VideoItem | null>(null);
+  const [approvalMinutes, setApprovalMinutes] = useState('10');
+  const [approvalSeconds, setApprovalSeconds] = useState('0');
+
   // Modal para ver comprobante
   const [previewReceipt, setPreviewReceipt] = useState<string | null>(null);
 
@@ -104,20 +109,44 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
     }
   };
 
-  // Aprobar video
-  const handleApproveVideo = async (videoId: number) => {
+  // Iniciar aprobación de video (abre modal para que el admin fije duración)
+  const handleStartApproveVideo = (video: VideoItem) => {
+    setApprovingVideo(video);
+    const defaultMins = Math.max(1, Math.floor((video.durationSeconds || 600) / 60));
+    const defaultSecs = (video.durationSeconds || 0) % 60;
+    setApprovalMinutes(defaultMins.toString());
+    setApprovalSeconds(defaultSecs.toString());
+  };
+
+  // Confirmar aprobación de video con duración fijada por el admin
+  const handleConfirmApproveVideo = async () => {
+    if (!approvingVideo) return;
+    const mins = parseInt(approvalMinutes) || 0;
+    const secs = parseInt(approvalSeconds) || 0;
+    const totalDuration = mins * 60 + secs;
+
+    if (totalDuration <= 0) {
+      setActionMsg({ type: 'error', text: 'La duración del video debe ser mayor a 0 segundos' });
+      return;
+    }
+
     try {
-      const res = await api(`/api/videos/${videoId}/review`, {
+      const res = await api(`/api/videos/${approvingVideo.id}/review`, {
         method: 'PATCH',
         body: JSON.stringify({
           status: 'approved',
+          durationSeconds: totalDuration,
         }),
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Error al aprobar video');
 
-      setActionMsg({ type: 'success', text: `¡Video #${videoId} aprobado exitosamente!` });
+      setActionMsg({
+        type: 'success',
+        text: `¡Video #${approvingVideo.id} aprobado exitosamente con duración de ${mins}m ${secs}s!`,
+      });
+      setApprovingVideo(null);
       fetchData();
     } catch (err: any) {
       setActionMsg({ type: 'error', text: err.message });
@@ -418,7 +447,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                         {vid.status === 'pending' ? (
                           <div className="flex items-center justify-end gap-2">
                             <button
-                              onClick={() => handleApproveVideo(vid.id)}
+                              onClick={() => handleStartApproveVideo(vid)}
                               className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition inline-flex items-center gap-1 cursor-pointer"
                             >
                               <Check className="w-3.5 h-3.5" /> Aprobar
@@ -439,6 +468,78 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PARA APROBAR VIDEO CON DURACIÓN FIJADA POR EL ADMIN */}
+      {approvingVideo && (
+        <div className="fixed inset-0 bg-[#2B2D33]/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-[#2B2D33] rounded-3xl border border-[#40444B] p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-bold">
+                <Check className="w-5 h-5 stroke-[3]" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-white">Aprobar Video #{approvingVideo.id}</h3>
+                <p className="text-xs text-[#9EA3AC]">Define la duración académica requerida para este video</p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-[#1A1C20] rounded-xl border border-[#363940]">
+              <p className="text-xs font-bold text-white truncate">{approvingVideo.title}</p>
+              <p className="text-[11px] font-mono text-[#9EA3AC] mt-0.5">ID YouTube: {approvingVideo.providerRef}</p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#E4E6EA] block">
+                Duración del video (Minutos y Segundos) *
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <span className="text-[10px] text-[#9EA3AC] block mb-1">Minutos:</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={approvalMinutes}
+                    onChange={(e) => setApprovalMinutes(e.target.value)}
+                    className="w-full p-2.5 rounded-xl bg-[#1A1C20] border border-[#40444B] text-xs font-bold text-white focus:outline-none focus:border-[#F2412C]"
+                  />
+                </div>
+                <div>
+                  <span className="text-[10px] text-[#9EA3AC] block mb-1">Segundos:</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="59"
+                    value={approvalSeconds}
+                    onChange={(e) => setApprovalSeconds(e.target.value)}
+                    className="w-full p-2.5 rounded-xl bg-[#1A1C20] border border-[#40444B] text-xs font-bold text-white focus:outline-none focus:border-[#F2412C]"
+                  />
+                </div>
+              </div>
+              <p className="text-[11px] text-[#9EA3AC]">
+                Total: <b className="text-white">{(parseInt(approvalMinutes) || 0) * 60 + (parseInt(approvalSeconds) || 0)}</b> segundos.
+                Esta duración se utilizará para validar el porcentaje mínimo de asistencia del estudiante.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setApprovingVideo(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-[#9EA3AC] hover:bg-[#363940] transition cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmApproveVideo}
+                className="px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-lg shadow-emerald-600/30 cursor-pointer"
+              >
+                Confirmar Aprobación
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -15,12 +15,11 @@ import {
   Save,
   X,
   Loader2,
-  Eye,
   Lock,
   Globe,
   Clock,
   Sparkles,
-  HelpCircle,
+  ExternalLink,
 } from 'lucide-react';
 import { api } from './api';
 import type { ManagedCourse } from './TeacherCoursesView';
@@ -40,6 +39,7 @@ export interface LessonItem {
     durationSeconds: number;
     status: 'pending' | 'approved' | 'rejected';
     title: string;
+    rejectionReason?: string | null;
   } | null;
 }
 
@@ -59,6 +59,7 @@ export interface VideoOption {
   providerRef: string;
   durationSeconds: number;
   status: 'pending' | 'approved' | 'rejected';
+  rejectionReason?: string | null;
 }
 
 interface CurriculumBuilderProps {
@@ -74,6 +75,19 @@ type EditorMode =
   | { type: 'new-lesson'; module: ModuleItem }
   | { type: 'edit-lesson'; module: ModuleItem; lesson: LessonItem };
 
+/**
+ * Extrae el ID de video de YouTube a partir de cualquier formato común de URL
+ * (youtube.com/watch?v=ID, youtu.be/ID, youtube.com/embed/ID, o ID directo de 11 caracteres).
+ */
+export function extractYouTubeId(url: string): string | null {
+  if (!url) return null;
+  const trimmed = url.trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+  const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i;
+  const match = trimmed.match(regExp);
+  return match ? match[1] : null;
+}
+
 export default function CurriculumBuilder({
   course,
   onBack,
@@ -87,14 +101,27 @@ export default function CurriculumBuilder({
   // Modo actual del editor derecho
   const [editorMode, setEditorMode] = useState<EditorMode>({ type: 'none' });
 
-  // Campos del formulario en el editor derecho
+  // Campos del formulario de módulo
   const [moduleTitle, setModuleTitle] = useState('');
   const [moduleDescription, setModuleDescription] = useState('');
 
+  // Campos del formulario de lección
   const [lessonTitle, setLessonTitle] = useState('');
   const [lessonDescription, setLessonDescription] = useState('');
   const [lessonStatus, setLessonStatus] = useState<'draft' | 'published'>('draft');
   const [lessonVideoId, setLessonVideoId] = useState<number | null>(null);
+
+  // Campos para Video de YouTube (V1.4)
+  const [lessonVideoUrl, setLessonVideoUrl] = useState('');
+  const [lessonVideoTitle, setLessonVideoTitle] = useState('');
+  const [currentVideoData, setCurrentVideoData] = useState<{
+    id: number;
+    providerRef: string;
+    durationSeconds: number;
+    status: 'pending' | 'approved' | 'rejected';
+    title: string;
+    rejectionReason?: string | null;
+  } | null>(null);
 
   // Modal de confirmación para eliminar
   const [deleteConfirm, setDeleteConfirm] = useState<{
@@ -161,6 +188,9 @@ export default function CurriculumBuilder({
     setLessonDescription('');
     setLessonStatus('draft');
     setLessonVideoId(null);
+    setLessonVideoUrl('');
+    setLessonVideoTitle('');
+    setCurrentVideoData(null);
     setEditorMode({ type: 'new-lesson', module: mod });
   };
 
@@ -170,6 +200,15 @@ export default function CurriculumBuilder({
     setLessonDescription(les.description || '');
     setLessonStatus(les.status);
     setLessonVideoId(les.videoId);
+    if (les.video) {
+      setLessonVideoUrl(`https://www.youtube.com/watch?v=${les.video.providerRef}`);
+      setLessonVideoTitle(les.video.title);
+      setCurrentVideoData(les.video);
+    } else {
+      setLessonVideoUrl('');
+      setLessonVideoTitle('');
+      setCurrentVideoData(null);
+    }
     setEditorMode({ type: 'edit-lesson', module: mod, lesson: les });
   };
 
@@ -263,7 +302,6 @@ export default function CurriculumBuilder({
     const [moved] = reordered.splice(index, 1);
     reordered.splice(targetIndex, 0, moved);
 
-    // Actualización optimista de orden
     setModules(reordered);
 
     try {
@@ -284,7 +322,7 @@ export default function CurriculumBuilder({
   };
 
   // ==========================================
-  // OPERACIONES DE LECCIONES
+  // OPERACIONES DE LECCIONES (V1.4)
   // ==========================================
 
   const handleSaveLesson = async (e: React.FormEvent) => {
@@ -294,13 +332,60 @@ export default function CurriculumBuilder({
       return;
     }
 
-    if (lessonStatus === 'published' && !lessonVideoId) {
-      showToast('error', 'Para publicar una lección debes asociar un video aprobado');
-      return;
-    }
-
     setSavingAction(true);
     try {
+      let finalVideoId: number | null = lessonVideoId;
+      const extractedId = extractYouTubeId(lessonVideoUrl);
+
+      // Si el docente ingresó texto pero no es un enlace válido de YouTube
+      if (lessonVideoUrl.trim() && !extractedId) {
+        throw new Error('Debes ingresar un enlace o ID de YouTube válido');
+      }
+
+      // Procesar registro del video en backend si hay ID de YouTube
+      if (extractedId) {
+        // Si el video actual en la lección ya tiene ese mismo providerRef, reutilizar su ID
+        if (currentVideoData && currentVideoData.providerRef === extractedId) {
+          finalVideoId = currentVideoData.id;
+        } else {
+          // Es un nuevo video o cambió el ID -> registrar en POST /api/videos (sin duración)
+          const vRes = await api('/api/videos', {
+            method: 'POST',
+            body: JSON.stringify({
+              title: lessonVideoTitle.trim() || lessonTitle.trim() || 'Video de Lección',
+              provider: 'youtube',
+              providerRef: extractedId,
+            }),
+          });
+
+          const vData = await vRes.json();
+          if (!vRes.ok) {
+            throw new Error(vData.message || 'Error al registrar el video de YouTube');
+          }
+          finalVideoId = vData.id;
+        }
+      } else {
+        finalVideoId = null;
+      }
+
+      // Validación estricta para publicación: requiere video APROBADO por administración
+      if (lessonStatus === 'published') {
+        if (!finalVideoId) {
+          throw new Error('Para publicar una lección debes asociar un video de YouTube');
+        }
+
+        // Buscar el estado del video en los disponibles o en currentVideoData
+        const vInfo =
+          (currentVideoData && currentVideoData.id === finalVideoId ? currentVideoData : null) ||
+          availableVideos.find((v) => v.id === finalVideoId);
+
+        if (!vInfo || vInfo.status !== 'approved') {
+          throw new Error(
+            'Para publicar esta lección el video debe estar APROBADO por el administrador. Puedes guardarla como Borrador mientras se completa la revisión.'
+          );
+        }
+      }
+
       if (editorMode.type === 'new-lesson') {
         const nextOrder = editorMode.module.lessons.length + 1;
         const res = await api('/api/lessons', {
@@ -311,7 +396,7 @@ export default function CurriculumBuilder({
             description: lessonDescription.trim() || undefined,
             orderIndex: nextOrder,
             status: lessonStatus,
-            videoId: lessonVideoId || undefined,
+            videoId: finalVideoId || undefined,
           }),
         });
 
@@ -320,6 +405,7 @@ export default function CurriculumBuilder({
 
         showToast('success', `Lección "${data.title}" agregada al temario.`);
         await loadCurriculum();
+        await loadVideos();
         setEditorMode({ type: 'none' });
       } else if (editorMode.type === 'edit-lesson') {
         const res = await api(`/api/lessons/${editorMode.lesson.id}`, {
@@ -328,7 +414,7 @@ export default function CurriculumBuilder({
             title: lessonTitle.trim(),
             description: lessonDescription.trim() || undefined,
             status: lessonStatus,
-            videoId: lessonVideoId || undefined,
+            videoId: finalVideoId || undefined,
           }),
         });
 
@@ -337,6 +423,7 @@ export default function CurriculumBuilder({
 
         showToast('success', `Lección "${data.title}" actualizada.`);
         await loadCurriculum();
+        await loadVideos();
         setEditorMode({ type: 'none' });
       }
     } catch (err: any) {
@@ -386,7 +473,6 @@ export default function CurriculumBuilder({
     const [moved] = reorderedLessons.splice(lessonIndex, 1);
     reorderedLessons.splice(targetIndex, 0, moved);
 
-    // Actualización optimista
     setModules((prev) =>
       prev.map((m) => (m.id === moduleId ? { ...m, lessons: reorderedLessons } : m))
     );
@@ -409,6 +495,17 @@ export default function CurriculumBuilder({
   };
 
   const totalLessonsCount = modules.reduce((acc, m) => acc + (m.lessons?.length || 0), 0);
+
+  // Detección de video actual en el editor
+  const extractedYouTubeId = extractYouTubeId(lessonVideoUrl);
+  const isVideoMatched =
+    currentVideoData && extractedYouTubeId && currentVideoData.providerRef === extractedYouTubeId;
+  const effectiveStatus = isVideoMatched
+    ? currentVideoData.status
+    : extractedYouTubeId
+    ? 'new'
+    : null;
+  const effectiveDuration = isVideoMatched ? currentVideoData.durationSeconds || 0 : 0;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -487,7 +584,7 @@ export default function CurriculumBuilder({
 
           {loading ? (
             <div className="p-12 text-center bg-[#2B2D33] border border-[#363940] rounded-3xl space-y-3">
-              <Loader2 className="w-8 h-8 text-blue-500 animate-spin mx-auto" />
+              <Loader2 className="w-8 h-8 text-[#F2412C] animate-spin mx-auto" />
               <p className="text-xs text-[#9EA3AC] font-medium">Cargando temario...</p>
             </div>
           ) : modules.length === 0 ? (
@@ -504,7 +601,7 @@ export default function CurriculumBuilder({
               </div>
               <button
                 onClick={handleStartNewModule}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#F2412C] hover:bg-[#F5543F] text-white text-xs font-bold transition"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#F2412C] hover:bg-[#F5543F] text-white text-xs font-bold transition cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span>Crear Primer Módulo</span>
@@ -522,7 +619,7 @@ export default function CurriculumBuilder({
                     key={mod.id}
                     className={`bg-[#2B2D33] border rounded-2xl transition overflow-hidden ${
                       isSelectedModule
-                        ? 'border-[#F2412C] shadow-lg shadow-blue-500/10 ring-1 ring-[#F2412C]/40'
+                        ? 'border-[#F2412C] shadow-lg shadow-[#F2412C]/10 ring-1 ring-[#F2412C]/40'
                         : 'border-[#363940] hover:border-[#40444B]'
                     }`}
                   >
@@ -618,7 +715,7 @@ export default function CurriculumBuilder({
                           <button
                             type="button"
                             onClick={() => handleStartNewLesson(mod)}
-                            className="mt-1.5 text-xs text-[#F2412C] hover:underline font-bold inline-flex items-center gap-1"
+                            className="mt-1.5 text-xs text-[#F2412C] hover:underline font-bold inline-flex items-center gap-1 cursor-pointer"
                           >
                             <Plus className="w-3 h-3" />
                             <span>Añadir primera lección</span>
@@ -672,7 +769,7 @@ export default function CurriculumBuilder({
                                   <p className="text-xs font-bold text-white truncate">
                                     {les.title}
                                   </p>
-                                  <div className="flex items-center gap-2 mt-0.5">
+                                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                                     <span
                                       className={`text-[9px] font-black uppercase px-1.5 py-0.2 rounded ${
                                         les.status === 'published'
@@ -684,13 +781,23 @@ export default function CurriculumBuilder({
                                     </span>
 
                                     {les.video ? (
-                                      <span className="text-[10px] text-[#9EA3AC] flex items-center gap-1 font-mono">
+                                      <span
+                                        className={`text-[9px] font-bold px-1.5 py-0.2 rounded border flex items-center gap-1 font-mono ${
+                                          les.video.status === 'approved'
+                                            ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/40'
+                                            : les.video.status === 'rejected'
+                                            ? 'bg-rose-950/60 text-rose-300 border-rose-500/40'
+                                            : 'bg-amber-950/60 text-amber-300 border-amber-500/40'
+                                        }`}
+                                      >
                                         <Play className="w-2.5 h-2.5 text-[#F2412C]" />
-                                        {Math.floor(les.video.durationSeconds / 60)}:
-                                        {(les.video.durationSeconds % 60)
-                                          .toString()
-                                          .padStart(2, '0')}{' '}
-                                        min
+                                        <span>
+                                          {les.video.status === 'approved'
+                                            ? `${Math.floor(les.video.durationSeconds / 60)}:${(les.video.durationSeconds % 60).toString().padStart(2, '0')}m`
+                                            : les.video.status === 'rejected'
+                                            ? 'Rechazado'
+                                            : 'Pendiente'}
+                                        </span>
                                       </span>
                                     ) : (
                                       <span className="text-[10px] text-[#636870] italic">
@@ -817,14 +924,14 @@ export default function CurriculumBuilder({
                     type="button"
                     onClick={() => setEditorMode({ type: 'none' })}
                     disabled={savingAction}
-                    className="px-4 py-2 rounded-xl bg-[#363940] hover:bg-[#40444B] text-[#B8BDC7] text-xs font-bold transition"
+                    className="px-4 py-2 rounded-xl bg-[#363940] hover:bg-[#40444B] text-[#B8BDC7] text-xs font-bold transition cursor-pointer"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={savingAction}
-                    className="flex items-center gap-2 px-5 py-2 rounded-xl bg-[#F2412C] hover:bg-[#F5543F] text-white text-xs font-bold shadow-lg shadow-[#F2412C]/30 transition disabled:opacity-50"
+                    className="flex items-center gap-2 px-5 py-2 rounded-xl bg-[#F2412C] hover:bg-[#F5543F] text-white text-xs font-bold shadow-lg shadow-[#F2412C]/30 transition disabled:opacity-50 cursor-pointer"
                   >
                     {savingAction ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -838,7 +945,7 @@ export default function CurriculumBuilder({
                 </div>
               </form>
             ) : (
-              /* FORMULARIO DE LECCIÓN (NUEVA O EDITAR) */
+              /* FORMULARIO DE LECCIÓN (NUEVA O EDITAR - V1.4) */
               <form onSubmit={handleSaveLesson} className="space-y-4 animate-fade-in">
                 <div className="flex items-center justify-between pb-3 border-b border-[#363940]">
                   <div className="flex items-center gap-2">
@@ -848,7 +955,7 @@ export default function CurriculumBuilder({
                         {editorMode.type === 'new-lesson' ? 'Nueva Lección' : 'Editar Lección'}
                       </h3>
                       <p className="text-[11px] text-[#9EA3AC]">
-                        En: {editorMode.module.title}
+                        En módulo: {editorMode.module.title}
                       </p>
                     </div>
                   </div>
@@ -861,6 +968,7 @@ export default function CurriculumBuilder({
                   </button>
                 </div>
 
+                {/* Título de la Lección */}
                 <div>
                   <label className="text-xs font-bold text-[#B8BDC7] block mb-1">
                     Título de la Lección *
@@ -869,12 +977,18 @@ export default function CurriculumBuilder({
                     type="text"
                     required
                     value={lessonTitle}
-                    onChange={(e) => setLessonTitle(e.target.value)}
-                    placeholder="ej. Lección 1.1: Marco Legal Vigente"
+                    onChange={(e) => {
+                      setLessonTitle(e.target.value);
+                      if (!lessonVideoTitle) {
+                        setLessonVideoTitle(e.target.value);
+                      }
+                    }}
+                    placeholder="ej. Lección 1.1: Marco Legal y Regulación"
                     className="w-full bg-[#1A1C20] border border-[#40444B] rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#F2412C]"
                   />
                 </div>
 
+                {/* Descripción de la Lección */}
                 <div>
                   <label className="text-xs font-bold text-[#B8BDC7] block mb-1">
                     Descripción / Notas de la Lección
@@ -888,30 +1002,198 @@ export default function CurriculumBuilder({
                   />
                 </div>
 
-                {/* Asignación de Video */}
-                <div>
-                  <label className="text-xs font-bold text-[#B8BDC7] block mb-1">
-                    Video Asociado
-                  </label>
-                  <select
-                    value={lessonVideoId || ''}
-                    onChange={(e) => {
-                      const val = e.target.value ? Number(e.target.value) : null;
-                      setLessonVideoId(val);
-                    }}
-                    className="w-full bg-[#1A1C20] border border-[#40444B] rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-[#F2412C]"
-                  >
-                    <option value="">-- Sin video asociado --</option>
-                    {availableVideos.map((vid) => (
-                      <option key={vid.id} value={vid.id}>
-                        {vid.title} ({Math.floor(vid.durationSeconds / 60)} min) -{' '}
-                        {vid.status === 'approved' ? '✅ Aprobado' : '⏳ Pendiente'}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-[10px] text-[#636870] mt-1">
-                    Para publicar la lección es obligatorio contar con un video con estado "Aprobado".
-                  </p>
+                {/* ======================================================== */}
+                {/* SECCIÓN DE VIDEO EN LA LECCIÓN (V1.4)                     */}
+                {/* ======================================================== */}
+                <div className="space-y-3 bg-[#1A1C20]/80 p-4 rounded-2xl border border-[#363940]">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <Video className="w-4 h-4 text-[#F2412C]" />
+                      <span>Video de YouTube</span>
+                    </label>
+                    {extractedYouTubeId && (
+                      <span className="text-[10px] font-mono text-[#9EA3AC] bg-[#2B2D33] px-2 py-0.5 rounded border border-[#363940]">
+                        ID: {extractedYouTubeId}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Input para pegar enlace de YouTube */}
+                  <div className="space-y-1">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={lessonVideoUrl}
+                        onChange={(e) => {
+                          setLessonVideoUrl(e.target.value);
+                          const newId = extractYouTubeId(e.target.value);
+                          if (newId && !lessonVideoTitle) {
+                            setLessonVideoTitle(lessonTitle || 'Video de Lección');
+                          }
+                        }}
+                        placeholder="Pega un enlace de YouTube: https://www.youtube.com/watch?v=..."
+                        className="w-full bg-[#2B2D33] border border-[#40444B] rounded-xl pl-3 pr-8 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#F2412C]"
+                      />
+                      {lessonVideoUrl && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLessonVideoUrl('');
+                            setLessonVideoTitle('');
+                            setCurrentVideoData(null);
+                            setLessonVideoId(null);
+                          }}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9EA3AC] hover:text-white"
+                          title="Limpiar enlace"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {lessonVideoUrl.trim() && !extractedYouTubeId && (
+                      <p className="text-[11px] text-rose-400 flex items-center gap-1 font-medium mt-1">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>Enlace no reconocido. Formato requerido: https://www.youtube.com/watch?v=ID o https://youtu.be/ID</span>
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Desplegable opcional para reutilizar videos ya registrados */}
+                  {availableVideos.length > 0 && (
+                    <div className="pt-0.5">
+                      <details className="text-[11px] text-[#9EA3AC] group">
+                        <summary className="cursor-pointer hover:text-white transition list-none flex items-center gap-1 font-medium select-none">
+                          <span>O elegir de videos ya registrados ({availableVideos.length})</span>
+                          <ChevronDown className="w-3 h-3 group-open:rotate-180 transition" />
+                        </summary>
+                        <div className="mt-2 space-y-1 max-h-36 overflow-y-auto bg-[#2B2D33] p-2 rounded-xl border border-[#363940]">
+                          {availableVideos.map((vid) => (
+                            <button
+                              key={vid.id}
+                              type="button"
+                              onClick={() => {
+                                setLessonVideoUrl(`https://www.youtube.com/watch?v=${vid.providerRef}`);
+                                setLessonVideoTitle(vid.title);
+                                setLessonVideoId(vid.id);
+                                setCurrentVideoData(vid);
+                              }}
+                              className="w-full text-left p-1.5 rounded-lg hover:bg-[#363940] text-xs flex items-center justify-between transition cursor-pointer"
+                            >
+                              <span className="truncate text-white font-medium">{vid.title}</span>
+                              <span className="shrink-0 text-[10px] ml-2 font-mono">
+                                {vid.status === 'approved' ? '✅ Aprobado' : '⏳ Pendiente'}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </details>
+                    </div>
+                  )}
+
+                  {/* VISTA PREVIA COMPLETA CUANDO HAY UN ID DE YOUTUBE VÁLIDO */}
+                  {extractedYouTubeId && (
+                    <div className="space-y-3 pt-3 border-t border-[#363940] animate-fade-in">
+                      {/* Título del video */}
+                      <div>
+                        <label className="text-[11px] font-bold text-[#B8BDC7] block mb-1">
+                          Título del Video
+                        </label>
+                        <input
+                          type="text"
+                          value={lessonVideoTitle}
+                          onChange={(e) => setLessonVideoTitle(e.target.value)}
+                          placeholder="Título descriptivo del video..."
+                          className="w-full bg-[#2B2D33] border border-[#40444B] rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#F2412C]"
+                        />
+                      </div>
+
+                      {/* Tarjeta de Miniatura y Estado */}
+                      <div className="flex flex-col sm:flex-row items-start gap-3 bg-[#2B2D33] p-3 rounded-xl border border-[#40444B]/80">
+                        {/* Miniatura de YouTube */}
+                        <div className="relative w-full sm:w-32 h-20 rounded-lg overflow-hidden bg-black shrink-0 border border-[#40444B]">
+                          <img
+                            src={`https://img.youtube.com/vi/${extractedYouTubeId}/hqdefault.jpg`}
+                            alt="Miniatura YouTube"
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                            <Play className="w-5 h-5 text-white drop-shadow-md" />
+                          </div>
+                        </div>
+
+                        {/* Estado y Mensajes */}
+                        <div className="flex-1 space-y-1.5 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {effectiveStatus === 'approved' ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-950/90 text-emerald-300 border border-emerald-500/50 shadow-sm">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                <span>Aprobado</span>
+                                {effectiveDuration > 0 && (
+                                  <span className="ml-1 text-[10px] font-mono text-emerald-200">
+                                    ({Math.floor(effectiveDuration / 60)}:{(effectiveDuration % 60).toString().padStart(2, '0')} min)
+                                  </span>
+                                )}
+                              </span>
+                            ) : effectiveStatus === 'rejected' ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-950/90 text-rose-300 border border-rose-500/50 shadow-sm">
+                                <AlertCircle className="w-3 h-3 text-rose-400" />
+                                <span>Rechazado</span>
+                              </span>
+                            ) : effectiveStatus === 'pending' ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-950/90 text-amber-300 border border-amber-500/50 shadow-sm">
+                                <Clock className="w-3 h-3 text-amber-400" />
+                                <span>Pendiente de Aprobación</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-[#2D1210] text-[#FAA99F] border border-[#F2412C]/40 shadow-sm">
+                                <Sparkles className="w-3 h-3 text-[#F2412C]" />
+                                <span>Nuevo Enlace</span>
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="text-xs font-bold text-white truncate">
+                            {lessonVideoTitle || lessonTitle || `Video ID: ${extractedYouTubeId}`}
+                          </p>
+
+                          {effectiveStatus === 'rejected' && currentVideoData?.rejectionReason && (
+                            <p className="text-[11px] text-rose-400 bg-rose-950/40 p-1.5 rounded-lg border border-rose-500/30">
+                              <b>Motivo:</b> {currentVideoData.rejectionReason}
+                            </p>
+                          )}
+
+                          {effectiveStatus === 'pending' && (
+                            <p className="text-[10px] text-[#9EA3AC] leading-relaxed">
+                              El administrador revisará el video y fijará su duración académica antes de que la lección pueda ser publicada.
+                            </p>
+                          )}
+
+                          {effectiveStatus === 'new' && (
+                            <p className="text-[10px] text-[#FAA99F] leading-relaxed">
+                              Al guardar la lección, este video se registrará automáticamente y quedará pendiente de aprobación por el admin.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Vista previa del reproductor interactivo */}
+                      <div className="space-y-1.5">
+                        <span className="text-[11px] font-bold text-[#B8BDC7] flex items-center gap-1">
+                          <Play className="w-3 h-3 text-[#F2412C]" /> Vista Previa del Reproductor:
+                        </span>
+                        <div className="aspect-video w-full rounded-2xl overflow-hidden bg-black border border-[#40444B] shadow-lg">
+                          <iframe
+                            src={`https://www.youtube-nocookie.com/embed/${extractedYouTubeId}`}
+                            title="Vista previa del video"
+                            className="w-full h-full"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Estado de la Lección (Borrador vs Publicada) */}
@@ -923,7 +1205,7 @@ export default function CurriculumBuilder({
                     <button
                       type="button"
                       onClick={() => setLessonStatus('draft')}
-                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
+                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
                         lessonStatus === 'draft'
                           ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
                           : 'bg-[#1A1C20] text-[#9EA3AC] border-[#363940] hover:bg-[#363940]'
@@ -935,15 +1217,15 @@ export default function CurriculumBuilder({
                     <button
                       type="button"
                       onClick={() => {
-                        if (!lessonVideoId) {
+                        if (effectiveStatus !== 'approved') {
                           showToast(
                             'info',
-                            'Recuerda asociar un video aprobado para poder publicar esta lección'
+                            'Recuerda que para publicar la lección el video debe estar Aprobado por el Administrador'
                           );
                         }
                         setLessonStatus('published');
                       }}
-                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
+                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
                         lessonStatus === 'published'
                           ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50'
                           : 'bg-[#1A1C20] text-[#9EA3AC] border-[#363940] hover:bg-[#363940]'
@@ -960,14 +1242,14 @@ export default function CurriculumBuilder({
                     type="button"
                     onClick={() => setEditorMode({ type: 'none' })}
                     disabled={savingAction}
-                    className="px-4 py-2 rounded-xl bg-[#363940] hover:bg-[#40444B] text-[#B8BDC7] text-xs font-bold transition"
+                    className="px-4 py-2 rounded-xl bg-[#363940] hover:bg-[#40444B] text-[#B8BDC7] text-xs font-bold transition cursor-pointer"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={savingAction}
-                    className="flex items-center gap-2 px-5 py-2 rounded-xl bg-[#F2412C] hover:bg-[#F5543F] text-white text-xs font-bold shadow-lg shadow-[#F2412C]/30 transition disabled:opacity-50"
+                    className="flex items-center gap-2 px-5 py-2 rounded-xl bg-[#F2412C] hover:bg-[#F5543F] text-white text-xs font-bold shadow-lg shadow-[#F2412C]/30 transition disabled:opacity-50 cursor-pointer"
                   >
                     {savingAction ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1012,7 +1294,7 @@ export default function CurriculumBuilder({
               <button
                 type="button"
                 onClick={() => setDeleteConfirm(null)}
-                className="px-4 py-2 rounded-xl bg-[#363940] hover:bg-[#40444B] text-[#B8BDC7] text-xs font-bold transition"
+                className="px-4 py-2 rounded-xl bg-[#363940] hover:bg-[#40444B] text-[#B8BDC7] text-xs font-bold transition cursor-pointer"
               >
                 Cancelar
               </button>
@@ -1026,7 +1308,7 @@ export default function CurriculumBuilder({
                   }
                 }}
                 disabled={savingAction}
-                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition shadow-lg shadow-rose-600/30"
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition shadow-lg shadow-rose-600/30 cursor-pointer"
               >
                 {savingAction ? 'Eliminando...' : 'Sí, eliminar'}
               </button>
@@ -1037,4 +1319,3 @@ export default function CurriculumBuilder({
     </div>
   );
 }
-
