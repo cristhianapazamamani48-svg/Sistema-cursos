@@ -30,7 +30,7 @@ import Sidebar from './Sidebar';
 import AdminPanel from './AdminPanel';
 import YouTubeTracker from './YouTubeTracker';
 import TeacherCoursesView from './TeacherCoursesView';
-import { api, setCsrfToken as setGlobalCsrfToken } from './api';
+import { api, setCsrfToken as setGlobalCsrfToken, setOnUnauthorized } from './api';
 
 interface User {
   id: number;
@@ -169,6 +169,43 @@ export default function App() {
   const [authMsg, setAuthMsg] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
+  // Estado para Login a Pantalla Completa (Tarea A: cerrar sesión real)
+  const [isFullScreenLogin, setIsFullScreenLogin] = useState(false);
+  const [sessionNotice, setSessionNotice] = useState<string | null>(null);
+
+  // Limpiar completamente todo el estado de la sesión anterior
+  const purgeAllSessionState = () => {
+    setCurrentUser(null);
+    setClassroomData(null);
+    setSelectedLesson(null);
+    setExpandedModules([]);
+    setMyCourses([]);
+    setCourseDetail(null);
+    setPendingOrders([]);
+    setTeacherSubTab('teaching');
+    setIsWizardOpenInTeacherView(false);
+    setIsMobileMenuOpen(false);
+    setEmail('');
+    setPassword('');
+    setFullName('');
+    setAuthMsg(null);
+    setAuthModalOpen(false);
+    setGlobalCsrfToken('');
+    sessionStorage.clear();
+  };
+
+  useEffect(() => {
+    // Interceptor reactivo global para 401 y expiración de sesión
+    setOnUnauthorized((notice) => {
+      purgeAllSessionState();
+      setIsFullScreenLogin(true);
+      setSessionNotice(notice || 'Sesión cerrada');
+      setActiveTab('catalog');
+    });
+
+    return () => setOnUnauthorized(null);
+  }, []);
+
   // Navegación Sidebar y Control Responsive
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [createCourseTrigger, setCreateCourseTrigger] = useState(0);
@@ -202,7 +239,7 @@ export default function App() {
 
   const checkAuth = async () => {
     try {
-      const res = await api('/api/auth/me');
+      const res = await api('/api/auth/me', { skipAuthRedirect: true });
       if (res.ok) {
         const data = await res.json();
         setCurrentUser(data.user);
@@ -413,6 +450,8 @@ export default function App() {
       if (data.csrfToken) {
         setGlobalCsrfToken(data.csrfToken);
       }
+      setIsFullScreenLogin(false);
+      setSessionNotice(null);
       setAuthModalOpen(false);
       setEmail('');
       setPassword('');
@@ -449,14 +488,14 @@ export default function App() {
 
   const handleLogout = async () => {
     try {
-      await api('/api/auth/logout', { method: 'POST' });
-      setCurrentUser(null);
-      setClassroomData(null);
-      setMyCourses([]);
-      setActiveTab('catalog');
-      showToast('info', 'Has cerrado sesión.');
+      await api('/api/auth/logout', { method: 'POST', skipAuthRedirect: true });
     } catch (err) {
-      console.error(err);
+      console.error('Error al cerrar sesión:', err);
+    } finally {
+      purgeAllSessionState();
+      setIsFullScreenLogin(true);
+      setSessionNotice('Sesión cerrada');
+      setActiveTab('catalog');
     }
   };
 
@@ -603,6 +642,196 @@ export default function App() {
       </div>
     );
   };
+
+  // Pantalla de login a pantalla completa (sin sidebar) - Tarea A: cerrar sesión real
+  if (isFullScreenLogin) {
+    return (
+      <div className="min-h-screen w-full bg-[#E4E6EA] text-[#2B2D33] flex flex-col justify-center items-center p-4 sm:p-6 font-sans selection:bg-[#F2412C] selection:text-white relative">
+        {/* Toast Alert */}
+        {toast && (
+          <div
+            className={`fixed bottom-6 right-6 z-50 max-w-md px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 border text-sm font-medium transition-all transform animate-bounce-subtle ${
+              toast.type === 'success'
+                ? 'bg-emerald-950/90 border-emerald-500/50 text-emerald-200'
+                : toast.type === 'error'
+                ? 'bg-rose-950/90 border-rose-500/50 text-rose-200'
+                : 'bg-[#2D1210]/90 border-[#F2412C]/50 text-[#FAA99F]'
+            }`}
+          >
+            {toast.type === 'success' ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
+            )}
+            <span>{toast.text}</span>
+          </div>
+        )}
+
+        {/* Aviso destacado: Sesión cerrada */}
+        {sessionNotice && (
+          <div className="w-full max-w-md mb-5 p-4 rounded-3xl bg-[#2B2D33] text-white border-2 border-[#F2412C] shadow-xl flex items-center justify-between gap-3 animate-fade-in">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#F2412C] flex items-center justify-center text-white shrink-0 shadow-sm">
+                <LogOut className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-sm font-black text-white">{sessionNotice}</p>
+                <p className="text-[11px] text-[#E4E6EA]/75 mt-0.5">
+                  Tu sesión ha sido finalizada con éxito. Ningún dato anterior queda expuesto.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setSessionNotice(null)}
+              className="text-[#9EA3AC] hover:text-white p-1.5 rounded-xl hover:bg-[#363940] transition cursor-pointer"
+              title="Cerrar aviso"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Tarjeta de Inicio de Sesión a Pantalla Completa (Sin Sidebar) */}
+        <div className="w-full max-w-md bg-white border border-[#D1D5DB] rounded-3xl p-6 sm:p-8 shadow-xl">
+          {/* Logo y Encabezado */}
+          <div className="flex flex-col items-center text-center mb-6">
+            <div className="w-14 h-14 rounded-2xl bg-[#2B2D33] border-2 border-[#F2412C] flex items-center justify-center text-white mb-3 shadow-sm">
+              <GraduationCap className="w-7 h-7 text-[#F2412C]" />
+            </div>
+            <h1 className="text-xl font-black text-[#2B2D33] tracking-tight">EducaSuite 360</h1>
+            <p className="text-xs text-[#636870] mt-1">
+              {authMode === 'login'
+                ? 'Ingresa tus credenciales para acceder a tus cursos y progreso'
+                : 'Crea tu cuenta para comenzar a aprender con certificación'}
+            </p>
+          </div>
+
+          {/* Accesos Rápidos para Demo */}
+          <div className="mb-6 p-3 bg-[#E4E6EA]/60 rounded-2xl border border-[#D1D5DB]">
+            <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#636870] mb-2 text-center">
+              Accesos Rápidos Demo
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('estudiante@demo.com', 'Estudiante2024!')}
+                className="py-2 px-2 bg-white hover:bg-[#E4E6EA] border border-[#D1D5DB] rounded-xl text-[11px] font-bold text-[#2B2D33] transition cursor-pointer text-center"
+              >
+                Estudiante
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('docente@demo.com', 'Docente2024!')}
+                className="py-2 px-2 bg-white hover:bg-[#E4E6EA] border border-[#D1D5DB] rounded-xl text-[11px] font-bold text-[#2B2D33] transition cursor-pointer text-center"
+              >
+                Docente
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('admin@demo.com', 'Admin2024!')}
+                className="py-2 px-2 bg-white hover:bg-[#E4E6EA] border border-[#D1D5DB] rounded-xl text-[11px] font-bold text-[#2B2D33] transition cursor-pointer text-center"
+              >
+                Admin
+              </button>
+            </div>
+          </div>
+
+          {/* Mensaje de error / éxito de Auth */}
+          {authMsg && (
+            <div
+              className={`p-3 rounded-2xl text-xs font-semibold mb-4 border flex items-center gap-2 ${
+                authMsg.type === 'error'
+                  ? 'bg-rose-50 border-rose-200 text-rose-800'
+                  : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              }`}
+            >
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{authMsg.text}</span>
+            </div>
+          )}
+
+          {/* Formulario */}
+          <form onSubmit={authMode === 'login' ? handleLogin : handleRegister} className="space-y-4">
+            {authMode === 'register' && (
+              <div>
+                <label className="text-xs font-bold text-[#2B2D33] block mb-1.5">Nombre Completo</label>
+                <input
+                  type="text"
+                  required
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Ej. María Elena Condori"
+                  className="w-full bg-[#E4E6EA]/40 text-[#2B2D33] text-xs font-medium rounded-xl p-3 border border-[#D1D5DB] focus:outline-none focus:ring-2 focus:ring-[#F2412C] focus:bg-white transition"
+                />
+              </div>
+            )}
+
+            <div>
+              <label className="text-xs font-bold text-[#2B2D33] block mb-1.5">Correo Electrónico</label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="ejemplo@demo.com"
+                className="w-full bg-[#E4E6EA]/40 text-[#2B2D33] text-xs font-medium rounded-xl p-3 border border-[#D1D5DB] focus:outline-none focus:ring-2 focus:ring-[#F2412C] focus:bg-white transition"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-[#2B2D33] block mb-1.5">Contraseña</label>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full bg-[#E4E6EA]/40 text-[#2B2D33] text-xs font-medium rounded-xl p-3 border border-[#D1D5DB] focus:outline-none focus:ring-2 focus:ring-[#F2412C] focus:bg-white transition"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-3 bg-[#F2412C] hover:bg-[#d4321e] text-white rounded-xl font-bold text-xs shadow-md shadow-[#F2412C]/20 transition cursor-pointer flex items-center justify-center gap-2 mt-2"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>{authMode === 'login' ? 'Entrar a la Plataforma' : 'Crear mi Cuenta'}</span>
+            </button>
+          </form>
+
+          {/* Alternar entre login / registro y salir al catálogo */}
+          <div className="mt-5 pt-4 border-t border-[#E4E6EA] text-center space-y-3">
+            <button
+              type="button"
+              onClick={() => {
+                setAuthMode(authMode === 'login' ? 'register' : 'login');
+                setAuthMsg(null);
+              }}
+              className="text-xs text-[#636870] hover:text-[#2B2D33] font-bold cursor-pointer"
+            >
+              {authMode === 'login'
+                ? '¿No tienes cuenta? Regístrate aquí'
+                : '¿Ya tienes una cuenta? Inicia sesión'}
+            </button>
+
+            <div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsFullScreenLogin(false);
+                  setSessionNotice(null);
+                  setActiveTab('catalog');
+                }}
+                className="text-xs text-[#9EA3AC] hover:text-[#636870] font-medium underline cursor-pointer"
+              >
+                Explorar catálogo como visitante
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#E4E6EA] text-[#2B2D33] flex flex-col font-sans selection:bg-[#F2412C] selection:text-white">
