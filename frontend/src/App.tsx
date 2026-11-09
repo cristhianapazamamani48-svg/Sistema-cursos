@@ -68,6 +68,8 @@ interface EnrolledCourse {
   totalLessons: number;
   completedLessons: number;
   progressPercentage: number;
+  resumeLessonId?: number | null;
+  resumeLessonTitle?: string | null;
 }
 
 interface ClassroomLesson {
@@ -286,7 +288,7 @@ export default function App() {
     }
   };
 
-  const enterClassroom = async (slug: string) => {
+  const enterClassroom = async (slug: string, resumeLessonId?: number | null) => {
     try {
       const res = await api(`/api/courses/${slug}/classroom`);
       if (res.ok) {
@@ -298,22 +300,54 @@ export default function App() {
         const unlockedModuleIds = data.modules.filter((m) => !m.isLocked).map((m) => m.id);
         setExpandedModules(unlockedModuleIds);
 
-        // Seleccionar la primera lección desbloqueada o la primera disponible
         let foundLesson: ClassroomLesson | null = null;
-        for (const mod of data.modules) {
-          if (!mod.isLocked) {
-            for (const les of mod.lessons) {
-              if (!les.isCompleted) {
-                foundLesson = les;
-                break;
-              }
+
+        // 1. Si viene resumeLessonId del backend, intentar seleccionarla si no está bloqueada
+        if (resumeLessonId) {
+          for (const mod of data.modules) {
+            const candidate = mod.lessons.find((les) => les.id === resumeLessonId);
+            if (candidate && !candidate.isLocked) {
+              foundLesson = candidate;
+              break;
             }
-            if (foundLesson) break;
           }
         }
+
+        // 2. Si no, buscar la última lección vista con progreso en curso (incompleta pero con avance)
+        if (!foundLesson) {
+          for (const mod of data.modules) {
+            if (!mod.isLocked) {
+              for (const les of mod.lessons) {
+                if (!les.isCompleted && (les.currentWatchPercentage > 0 || les.lastPositionSeconds > 0)) {
+                  foundLesson = les;
+                  break;
+                }
+              }
+              if (foundLesson) break;
+            }
+          }
+        }
+
+        // 3. Si no, seleccionar la primera lección pendiente (desbloqueada e incompleta)
+        if (!foundLesson) {
+          for (const mod of data.modules) {
+            if (!mod.isLocked) {
+              for (const les of mod.lessons) {
+                if (!les.isCompleted) {
+                  foundLesson = les;
+                  break;
+                }
+              }
+              if (foundLesson) break;
+            }
+          }
+        }
+
+        // 4. Fallback si todas están completas o ninguna coincide: primera lección del curso
         if (!foundLesson && data.modules[0]?.lessons[0]) {
           foundLesson = data.modules[0].lessons[0];
         }
+
         setSelectedLesson(foundLesson);
       } else if (res.status === 403) {
         showToast('error', 'No tienes una inscripción activa a este curso');
@@ -429,6 +463,144 @@ export default function App() {
   const toggleModule = (modId: number) => {
     setExpandedModules((prev) =>
       prev.includes(modId) ? prev.filter((id) => id !== modId) : [...prev, modId]
+    );
+  };
+
+  // Renderizador de tarjetas de cursos inscritos para estudiante (V2.2)
+  const renderEnrolledCourseCards = (coursesList: EnrolledCourse[]) => {
+    if (coursesList.length === 0) {
+      return (
+        <div className="bg-white border border-[#D1D5DB] rounded-3xl p-10 sm:p-14 text-center space-y-4 max-w-lg mx-auto shadow-xs">
+          <div className="w-16 h-16 rounded-2xl bg-[#E4E6EA] flex items-center justify-center mx-auto text-[#555861]">
+            <BookOpen className="w-8 h-8" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-lg font-bold text-[#2B2D33]">Aún no tienes cursos inscritos</h3>
+            <p className="text-xs text-[#555861] leading-relaxed max-w-sm mx-auto">
+              Inscríbete a un curso del catálogo para comenzar a aprender con certificación en tiempo real.
+            </p>
+          </div>
+          <button
+            onClick={() => setActiveTab('catalog')}
+            className="inline-flex items-center gap-2 bg-[#F2412C] hover:bg-[#D93522] text-white text-xs font-bold py-3 px-6 rounded-xl transition shadow-md shadow-[#F2412C]/20 cursor-pointer"
+          >
+            <BookOpen className="w-4 h-4" />
+            <span>Explorar Catálogo de Cursos</span>
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {coursesList.map((c) => {
+          const isCompleted =
+            c.status === 'completed' || (c.totalLessons > 0 && c.completedLessons >= c.totalLessons);
+
+          return (
+            <div
+              key={c.enrollmentId}
+              className="group bg-white border border-[#D1D5DB] hover:border-[#2B2D33]/40 rounded-3xl overflow-hidden shadow-xs hover:shadow-md transition flex flex-col justify-between"
+            >
+              <div>
+                {/* Portada / Thumbnail */}
+                <div className="relative h-44 w-full bg-[#2B2D33] overflow-hidden">
+                  {c.thumbnailUrl ? (
+                    <img
+                      src={c.thumbnailUrl}
+                      alt={c.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-[#2B2D33] flex flex-col items-center justify-center p-6 text-center">
+                      <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-white mb-2">
+                        <BookOpen className="w-6 h-6" />
+                      </div>
+                      <span className="text-xs font-bold text-[#E4E6EA] line-clamp-1 max-w-[200px]">
+                        {c.slug}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Etiqueta Completado / En Curso */}
+                  <div className="absolute top-3 left-3">
+                    {isCompleted ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-emerald-600 text-white shadow-md">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Completado
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-[#2B2D33]/90 text-white border border-white/20 shadow-md">
+                        <Clock className="w-3 h-3 text-[#F2412C]" />
+                        En Curso
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Porcentaje en esquina superior derecha */}
+                  <div className="absolute top-3 right-3">
+                    <span className="px-2.5 py-1 rounded-xl text-[11px] font-black bg-white/95 text-[#2B2D33] shadow-md border border-white/40">
+                      {c.progressPercentage}%
+                    </span>
+                  </div>
+                </div>
+
+                {/* Información del Curso */}
+                <div className="p-6 space-y-2">
+                  <h3 className="text-base font-bold text-[#2B2D33] group-hover:text-[#F2412C] transition line-clamp-2">
+                    {c.title}
+                  </h3>
+                  {c.description && (
+                    <p className="text-xs text-[#555861] line-clamp-2 leading-relaxed">
+                      {c.description}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Barra de progreso y Botón Continuar donde lo dejé */}
+              <div className="p-6 pt-0 space-y-4">
+                <div className="space-y-1.5 pt-3 border-t border-[#E4E6EA]">
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="font-bold text-[#555861]">Progreso del curso</span>
+                    <span className="font-extrabold text-[#2B2D33]">{c.progressPercentage}%</span>
+                  </div>
+                  <div className="w-full bg-[#E4E6EA] h-2.5 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        isCompleted ? 'bg-emerald-500' : 'bg-[#F2412C]'
+                      }`}
+                      style={{ width: `${Math.max(c.progressPercentage, 4)}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between items-center text-[11px] text-[#555861]">
+                    <span>{c.completedLessons} de {c.totalLessons} lecciones aprobadas</span>
+                    {c.resumeLessonTitle && (
+                      <span
+                        className="text-[#F2412C] font-semibold truncate max-w-[130px]"
+                        title={c.resumeLessonTitle}
+                      >
+                        {isCompleted ? 'Finalizado' : `Sig: ${c.resumeLessonTitle}`}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => enterClassroom(c.slug, c.resumeLessonId)}
+                  className="w-full bg-[#F2412C] hover:bg-[#D93522] text-white text-xs font-bold py-3 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-md shadow-[#F2412C]/20 cursor-pointer"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>Continuar donde lo dejé</span>
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     );
   };
 
@@ -903,130 +1075,19 @@ export default function App() {
                       <p className="text-xs text-[#555861]">Tus inscripciones y avance como estudiante</p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {myCourses.map((c) => (
-                        <div
-                          key={c.enrollmentId}
-                          className="bg-white border border-[#D1D5DB] rounded-3xl p-6 flex flex-col justify-between space-y-4 hover:border-[#2B2D33]/30 transition shadow-xs"
-                        >
-                          <div className="space-y-3">
-                            <div className="flex justify-between items-start">
-                              <span
-                                className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full ${
-                                  c.status === 'completed'
-                                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                                    : 'bg-[#F2412C]/20 text-[#F2412C] border border-[#F2412C]/30'
-                                }`}
-                              >
-                                {c.status === 'completed' ? 'Completado' : 'En Curso'}
-                              </span>
-                              <span className="text-xs font-bold text-[#555861]">{c.progressPercentage}%</span>
-                            </div>
-
-                            <h3 className="text-base font-bold text-[#2B2D33]">{c.title}</h3>
-                            <p className="text-xs text-[#555861] line-clamp-2">{c.description}</p>
-                          </div>
-
-                          <div className="space-y-3 pt-3 border-t border-[#E4E6EA]">
-                            <div className="space-y-1.5">
-                              <div className="w-full bg-[#363940] h-2 rounded-full overflow-hidden">
-                                <div
-                                  className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                                  style={{ width: `${c.progressPercentage}%` }}
-                                ></div>
-                              </div>
-                              <div className="flex justify-between text-[11px] text-[#636870]">
-                                <span>{c.completedLessons} de {c.totalLessons} lecciones aprobadas</span>
-                              </div>
-                            </div>
-
-                            <button
-                              onClick={() => enterClassroom(c.slug)}
-                              className="w-full bg-[#F2412C] hover:bg-[#F5543F] text-white text-xs font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-[#F2412C]/20"
-                            >
-                              <Play className="w-3.5 h-3.5" /> Continuar Aprendiendo
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    {renderEnrolledCourseCards(myCourses)}
                   </div>
                 )}
               </div>
             ) : (
-              /* VISTA PARA ESTUDIANTES */
+              /* VISTA PARA ESTUDIANTES (V2.2) */
               <div className="space-y-8">
                 <div>
                   <h1 className="text-2xl font-black text-[#2B2D33]">Mis Cursos</h1>
                   <p className="text-xs text-[#555861]">Continúa con tus capacitaciones y revisa tu avance en tiempo real</p>
                 </div>
 
-                {myCourses.length === 0 ? (
-                  <div className="bg-[#2B2D33] border border-[#363940] rounded-3xl p-12 text-center space-y-4 max-w-lg mx-auto">
-                    <div className="w-16 h-16 rounded-full bg-[#363940] flex items-center justify-center mx-auto text-[#555861]">
-                      <BookOpen className="w-8 h-8" />
-                    </div>
-                    <h3 className="text-lg font-bold text-white">No tienes cursos activos</h3>
-                    <p className="text-xs text-[#555861] leading-relaxed">
-                      Inscríbete a un curso del catálogo para comenzar a aprender de inmediato.
-                    </p>
-                    <button
-                      onClick={() => setActiveTab('catalog')}
-                      className="bg-[#F2412C] hover:bg-[#F5543F] text-white text-xs font-bold py-2.5 px-6 rounded-xl transition"
-                    >
-                      Explorar Catálogo
-                    </button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {myCourses.map((c) => (
-                      <div
-                        key={c.enrollmentId}
-                        className="bg-white border border-[#D1D5DB] rounded-3xl p-6 flex flex-col justify-between space-y-4 hover:border-[#2B2D33]/30 transition shadow-xs"
-                      >
-                        <div className="space-y-3">
-                          <div className="flex justify-between items-start">
-                            <span
-                              className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full ${
-                                c.status === 'completed'
-                                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                                  : 'bg-[#F2412C]/20 text-[#F2412C] border border-[#F2412C]/30'
-                              }`}
-                            >
-                              {c.status === 'completed' ? 'Completado' : 'En Curso'}
-                            </span>
-                            <span className="text-xs font-bold text-[#555861]">{c.progressPercentage}%</span>
-                          </div>
-
-                          <h3 className="text-base font-bold text-[#2B2D33]">{c.title}</h3>
-                          <p className="text-xs text-[#555861] line-clamp-2">{c.description}</p>
-                        </div>
-
-                        <div className="space-y-3 pt-3 border-t border-[#E4E6EA]">
-                          {/* Barra de progreso visual */}
-                          <div className="space-y-1.5">
-                            <div className="w-full bg-[#363940] h-2 rounded-full overflow-hidden">
-                              <div
-                                className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                                style={{ width: `${c.progressPercentage}%` }}
-                              ></div>
-                            </div>
-                            <div className="flex justify-between text-[11px] text-[#636870]">
-                              <span>{c.completedLessons} de {c.totalLessons} lecciones aprobadas</span>
-                            </div>
-                          </div>
-
-                          <button
-                            onClick={() => enterClassroom(c.slug)}
-                            className="w-full bg-[#F2412C] hover:bg-[#F5543F] text-white text-xs font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-[#F2412C]/20"
-                          >
-                            <Play className="w-3.5 h-3.5" /> Continuar Aprendiendo
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                {renderEnrolledCourseCards(myCourses)}
               </div>
             )}
           </div>

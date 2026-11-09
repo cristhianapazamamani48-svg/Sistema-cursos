@@ -1,4 +1,4 @@
-﻿import {
+import {
   Injectable,
   Inject,
   NotFoundException,
@@ -515,7 +515,39 @@ export class CoursesService {
               c.id as course_id, c.title as course_title, c.slug as course_slug,
               c.thumbnail_url, c.description, c.price, c.currency,
               count(DISTINCT l.id)::int as total_lessons,
-              count(DISTINCT CASE WHEN lp.is_completed = true THEN lp.lesson_id END)::int as completed_lessons
+              count(DISTINCT CASE WHEN lp.is_completed = true THEN lp.lesson_id END)::int as completed_lessons,
+              (
+                SELECT lp2.lesson_id
+                FROM lesson_progress lp2
+                JOIN lessons l2 ON l2.id = lp2.lesson_id
+                WHERE lp2.enrollment_id = e.id AND l2.deleted_at IS NULL AND l2.status = 'published'
+                ORDER BY lp2.updated_at DESC
+                LIMIT 1
+              ) as last_lesson_id,
+              (
+                SELECT l2.title
+                FROM lesson_progress lp2
+                JOIN lessons l2 ON l2.id = lp2.lesson_id
+                WHERE lp2.enrollment_id = e.id AND l2.deleted_at IS NULL AND l2.status = 'published'
+                ORDER BY lp2.updated_at DESC
+                LIMIT 1
+              ) as last_lesson_title,
+              (
+                SELECT l3.id
+                FROM lessons l3
+                JOIN modules m3 ON m3.id = l3.module_id
+                WHERE m3.course_id = c.id AND m3.deleted_at IS NULL AND l3.deleted_at IS NULL AND l3.status = 'published'
+                ORDER BY m3.order_index ASC, l3.order_index ASC
+                LIMIT 1
+              ) as first_lesson_id,
+              (
+                SELECT l3.title
+                FROM lessons l3
+                JOIN modules m3 ON m3.id = l3.module_id
+                WHERE m3.course_id = c.id AND m3.deleted_at IS NULL AND l3.deleted_at IS NULL AND l3.status = 'published'
+                ORDER BY m3.order_index ASC, l3.order_index ASC
+                LIMIT 1
+              ) as first_lesson_title
        FROM enrollments e
        JOIN courses c ON c.id = e.course_id
        LEFT JOIN modules m ON m.course_id = c.id AND m.deleted_at IS NULL
@@ -531,6 +563,12 @@ export class CoursesService {
       const total = Number(row.total_lessons) || 0;
       const completed = Number(row.completed_lessons) || 0;
       const progressPercentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+      const resumeLessonId = row.last_lesson_id
+        ? Number(row.last_lesson_id)
+        : row.first_lesson_id
+        ? Number(row.first_lesson_id)
+        : null;
+      const resumeLessonTitle = row.last_lesson_title || row.first_lesson_title || null;
       return {
         enrollmentId: Number(row.enrollment_id),
         status: row.enrollment_status,
@@ -546,6 +584,8 @@ export class CoursesService {
         totalLessons: total,
         completedLessons: completed,
         progressPercentage,
+        resumeLessonId,
+        resumeLessonTitle,
       };
     });
   }
