@@ -624,4 +624,111 @@ export class CoursesService {
       modules: classroomModules,
     };
   }
+
+  /**
+   * Obtiene la lista de verificación (checklist) para publicar un curso.
+   * Requisitos V1.5:
+   * 1. Título definido (>= 3 caracteres)
+   * 2. Portada (thumbnailUrl no vacía)
+   * 3. Al menos 1 módulo no eliminado
+   * 4. Cada lección no eliminada debe tener un video asociado con status = 'approved'
+   */
+  async getPublishChecklist(courseId: number) {
+    const [course] = await this.db.select().from(courses).where(eq(courses.id, courseId)).limit(1);
+    if (!course) {
+      throw new NotFoundException(`Curso #${courseId} no encontrado`);
+    }
+
+    // 1. Título
+    const hasTitle = Boolean(course.title && course.title.trim().length >= 3);
+
+    // 2. Portada
+    const hasThumbnail = Boolean(course.thumbnailUrl && course.thumbnailUrl.trim().length > 0);
+
+    // 3. Al menos 1 módulo
+    const activeModules = await this.db
+      .select({ id: modules.id, title: modules.title })
+      .from(modules)
+      .where(and(eq(modules.courseId, courseId), isNull(modules.deletedAt)));
+    const modulesCount = activeModules.length;
+    const hasModules = modulesCount >= 1;
+
+    // 4. Cada lección con video aprobado
+    const lessonRows = await this.pool.query(
+      `SELECT l.id, l.title as "lessonTitle", l.video_id as "videoId",
+              m.title as "moduleTitle",
+              v.status as "videoStatus", v.title as "videoTitle", v.rejection_reason as "rejectionReason"
+       FROM lessons l
+       JOIN modules m ON m.id = l.module_id
+       LEFT JOIN videos v ON v.id = l.video_id
+       WHERE m.course_id = $1 AND m.deleted_at IS NULL AND l.deleted_at IS NULL
+       ORDER BY m.order_index ASC, l.order_index ASC;`,
+      [courseId],
+    );
+
+    const totalLessons = lessonRows.rowCount || 0;
+    const lessonIssues: string[] = [];
+    let approvedVideosCount = 0;
+
+    if (totalLessons === 0) {
+      lessonIssues.push('El curso debe tener al menos una lección con video aprobado');
+    } else {
+      for (const row of lessonRows.rows) {
+        if (!row.videoId) {
+          lessonIssues.push(`"${row.lessonTitle}" (${row.moduleTitle}): No tiene video asignado`);
+        } else if (row.videoStatus !== 'approved') {
+          if (row.videoStatus === 'rejected') {
+            lessonIssues.push(`"${row.lessonTitle}": Video rechazado (${row.rejectionReason || 'No cumple requisitos'})`);
+          } else {
+            lessonIssues.push(`"${row.lessonTitle}": Video pendiente de aprobación por el admin`);
+          }
+        } else {
+          approvedVideosCount++;
+        }
+      }
+    }
+
+    const hasApprovedLessons = totalLessons > 0 && lessonIssues.length === 0;
+    const canPublish = hasTitle && hasThumbnail && hasModules && hasApprovedLessons;
+
+    return {
+      canPublish,
+      course: {
+        id: course.id,
+        title: course.title,
+        status: course.status,
+      },
+      checklist: {
+        title: {
+          passed: hasTitle,
+          label: 'Título del curso definido',
+          message: hasTitle ? course.title : 'El título debe tener al menos 3 caracteres',
+        },
+        thumbnail: {
+          passed: hasThumbnail,
+          label: 'Portada del curso asignada',
+          message: hasThumbnail ? 'Portada configurada correctamente' : 'Falta asignar una imagen de portada',
+        },
+        modules: {
+          passed: hasModules,
+          count: modulesCount,
+          label: 'Al menos 1 módulo temático',
+          message: hasModules ? `${modulesCount} módulo(s) configurado(s)` : 'Debes crear al menos 1 módulo',
+        },
+        lessons: {
+          passed: hasApprovedLessons,
+          totalLessons,
+          approvedVideosCount,
+          issues: lessonIssues,
+          label: 'Cada lección con video aprobado',
+          message:
+            hasApprovedLessons
+              ? `Todas las lecciones (${totalLessons}) cuentan con video aprobado`
+              : totalLessons === 0
+              ? 'Debes añadir al menos una lección con video aprobado'
+              : `${lessonIssues.length} lección(es) requieren video aprobado`,
+        },
+      },
+    };
+  }
 }

@@ -1,13 +1,15 @@
 @import "tailwindcss";
 
-/* =============================================
-   SISTEMA DE COLORES — AulaPro
-   Gris Perla: #E4E6EA | Grafito: #2B2D33 | Rojo Tomate: #F2412C
-   ============================================= */
+/* ========================================================
+   SISTEMA DE COLORES OFICIAL — AulaPro
+   Principal: Gris Perla (#E4E6EA)
+   Secundario: Grafito (#2B2D33)
+   Toques de Acento: Rojo Tomate (#F2412C)
+   ======================================================== */
 @layer base {
   body {
-    background-color: #1A1C20;
-    color: #E4E6EA;
+    background-color: #E4E6EA;
+    color: #2B2D33;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', Helvetica, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
   }

@@ -90,6 +90,13 @@ export class CoursesController {
     return this.coursesService.create(parseResult.data, user.id, user.role);
   }
 
+  @Get(':id/publish-checklist')
+  @UseGuards(SessionGuard, RolesGuard)
+  @Roles('admin', 'superadmin', 'docente')
+  async getPublishChecklist(@Param('id', ParseIntPipe) id: number) {
+    return this.coursesService.getPublishChecklist(id);
+  }
+
   @Patch(':id')
   @UseGuards(SessionGuard, RolesGuard)
   @Roles('admin', 'superadmin', 'docente')

@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { api } from './api';
 import type { ManagedCourse } from './TeacherCoursesView';
+import PublishChecklistModal from './PublishChecklistModal';
 
 export interface LessonItem {
   id: number;
@@ -96,6 +97,7 @@ export default function CurriculumBuilder({
   const [modules, setModules] = useState<ModuleItem[]>([]);
   const [availableVideos, setAvailableVideos] = useState<VideoOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
   const [savingAction, setSavingAction] = useState(false);
 
   // Modo actual del editor derecho
@@ -514,7 +516,7 @@ export default function CurriculumBuilder({
         <div className="flex items-center gap-4">
           <button
             onClick={onBack}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#2B2D33] hover:bg-[#363940] text-[#B8BDC7] hover:text-white text-xs font-bold border border-[#363940] transition cursor-pointer"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#2B2D33] hover:bg-[#363940] text-[#2B2D33] hover:text-white text-xs font-bold border border-[#363940] transition cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Volver a Mis Cursos</span>
@@ -528,14 +530,25 @@ export default function CurriculumBuilder({
               <span
                 className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border ${
                   course.status === 'published'
-                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                    : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                    ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
+                    : 'bg-amber-100 text-amber-700 border-amber-300'
                 }`}
               >
                 {course.status === 'published' ? 'Publicado' : 'Borrador'}
               </span>
+
+              {course.status === 'draft' && (
+                <button
+                  type="button"
+                  onClick={() => setIsPublishModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#F2412C] hover:bg-[#D93522] text-white shadow-sm shadow-[#F2412C]/25 transition cursor-pointer"
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                  <span>Publicar</span>
+                </button>
+              )}
             </div>
-            <p className="text-xs text-[#9EA3AC] mt-0.5">
+            <p className="text-xs text-[#555861] mt-0.5">
               Curso: <span className="text-white font-bold">{course.title}</span> •{' '}
               <span className="font-mono text-[#636870]">/{course.slug}</span>
             </p>
@@ -545,12 +558,12 @@ export default function CurriculumBuilder({
         {/* Resumen de estadísticas y botón nuevo módulo */}
         <div className="flex items-center gap-3">
           <div className="hidden sm:flex items-center gap-3 bg-[#2B2D33]/60 px-3 py-1.5 rounded-xl border border-[#363940] text-xs">
-            <span className="text-[#9EA3AC] flex items-center gap-1">
+            <span className="text-[#555861] flex items-center gap-1">
               <Layers className="w-3.5 h-3.5 text-[#F2412C]" />
               <b className="text-white">{modules.length}</b> módulos
             </span>
             <span className="text-[#50545C]">•</span>
-            <span className="text-[#9EA3AC] flex items-center gap-1">
+            <span className="text-[#555861] flex items-center gap-1">
               <FileText className="w-3.5 h-3.5 text-[#F2412C]" />
               <b className="text-white">{totalLessonsCount}</b> lecciones
             </span>
@@ -583,9 +596,9 @@ export default function CurriculumBuilder({
           </div>
 
           {loading ? (
-            <div className="p-12 text-center bg-[#2B2D33] border border-[#363940] rounded-3xl space-y-3">
+            <div className="p-12 text-center bg-white border border-[#D1D5DB] rounded-3xl shadow-xs space-y-3">
               <Loader2 className="w-8 h-8 text-[#F2412C] animate-spin mx-auto" />
-              <p className="text-xs text-[#9EA3AC] font-medium">Cargando temario...</p>
+              <p className="text-xs text-[#555861] font-medium">Cargando temario...</p>
             </div>
           ) : modules.length === 0 ? (
             /* Estado vacío si no hay módulos */
@@ -595,7 +608,7 @@ export default function CurriculumBuilder({
               </div>
               <div>
                 <h3 className="text-sm font-bold text-white">No hay módulos en este curso</h3>
-                <p className="text-xs text-[#9EA3AC] mt-1 max-w-sm mx-auto">
+                <p className="text-xs text-[#555861] mt-1 max-w-sm mx-auto">
                   Estructura tu curso dividiéndolo en módulos temáticos. Luego podrás añadir lecciones en video a cada uno.
                 </p>
               </div>
@@ -624,7 +637,7 @@ export default function CurriculumBuilder({
                     }`}
                   >
                     {/* CABECERA DEL MÓDULO */}
-                    <div className="p-4 bg-[#1A1C20]/40 flex items-center justify-between gap-3 border-b border-[#363940]/80">
+                    <div className="p-4 bg-[#F8F9FA] flex items-center justify-between gap-3 border-b border-[#363940]/80">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         {/* Botones de Reordenar Módulo */}
                         <div className="flex flex-col gap-0.5 shrink-0">
@@ -632,7 +645,7 @@ export default function CurriculumBuilder({
                             type="button"
                             disabled={modIndex === 0}
                             onClick={() => handleMoveModule(modIndex, 'up')}
-                            className="p-1 rounded hover:bg-[#363940] text-[#9EA3AC] hover:text-white disabled:opacity-20 disabled:hover:bg-transparent transition cursor-pointer"
+                            className="p-1 rounded hover:bg-[#363940] text-[#555861] hover:text-white disabled:opacity-20 disabled:hover:bg-transparent transition cursor-pointer"
                             title="Subir módulo"
                           >
                             <ChevronUp className="w-3.5 h-3.5" />
@@ -641,7 +654,7 @@ export default function CurriculumBuilder({
                             type="button"
                             disabled={modIndex === modules.length - 1}
                             onClick={() => handleMoveModule(modIndex, 'down')}
-                            className="p-1 rounded hover:bg-[#363940] text-[#9EA3AC] hover:text-white disabled:opacity-20 disabled:hover:bg-transparent transition cursor-pointer"
+                            className="p-1 rounded hover:bg-[#363940] text-[#555861] hover:text-white disabled:opacity-20 disabled:hover:bg-transparent transition cursor-pointer"
                             title="Bajar módulo"
                           >
                             <ChevronDown className="w-3.5 h-3.5" />
@@ -655,11 +668,11 @@ export default function CurriculumBuilder({
 
                         {/* Título de Módulo */}
                         <div className="min-w-0">
-                          <h3 className="text-sm font-bold text-white truncate">
+                          <h3 className="text-sm font-bold text-[#2B2D33] truncate">
                             {mod.title}
                           </h3>
                           {mod.description && (
-                            <p className="text-[11px] text-[#9EA3AC] line-clamp-1">
+                            <p className="text-[11px] text-[#555861] line-clamp-1">
                               {mod.description}
                             </p>
                           )}
@@ -681,7 +694,7 @@ export default function CurriculumBuilder({
                         <button
                           type="button"
                           onClick={() => handleStartEditModule(mod)}
-                          className="p-1.5 rounded-lg bg-[#363940] hover:bg-[#40444B] text-[#B8BDC7] hover:text-white transition cursor-pointer"
+                          className="p-1.5 rounded-lg bg-[#363940] hover:bg-[#40444B] text-[#2B2D33] hover:text-white transition cursor-pointer"
                           title="Editar módulo"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -697,7 +710,7 @@ export default function CurriculumBuilder({
                               title: mod.title,
                             })
                           }
-                          className="p-1.5 rounded-lg bg-[#363940] hover:bg-rose-950 text-[#9EA3AC] hover:text-[#F2412C] transition cursor-pointer"
+                          className="p-1.5 rounded-lg bg-[#363940] hover:bg-rose-950 text-[#555861] hover:text-[#F2412C] transition cursor-pointer"
                           title="Borrar módulo"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -733,7 +746,7 @@ export default function CurriculumBuilder({
                               className={`p-2.5 rounded-xl border flex items-center justify-between gap-3 transition ${
                                 isSelectedLesson
                                   ? 'bg-[#2D1210]/40 border-[#F2412C]/60 shadow-md ring-1 ring-[#F2412C]/30'
-                                  : 'bg-[#1A1C20]/60 border-[#363940]/80 hover:border-[#40444B]'
+                                  : 'bg-[#F4F5F7] border-[#E4E6EA] hover:border-[#40444B]'
                               }`}
                             >
                               <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -745,7 +758,7 @@ export default function CurriculumBuilder({
                                     onClick={() =>
                                       handleMoveLesson(mod.id, lesIndex, 'up')
                                     }
-                                    className="p-0.5 rounded hover:bg-[#363940] text-[#9EA3AC] hover:text-white disabled:opacity-20 disabled:hover:bg-transparent transition cursor-pointer"
+                                    className="p-0.5 rounded hover:bg-[#363940] text-[#555861] hover:text-white disabled:opacity-20 disabled:hover:bg-transparent transition cursor-pointer"
                                     title="Subir lección"
                                   >
                                     <ChevronUp className="w-3 h-3" />
@@ -756,17 +769,17 @@ export default function CurriculumBuilder({
                                     onClick={() =>
                                       handleMoveLesson(mod.id, lesIndex, 'down')
                                     }
-                                    className="p-0.5 rounded hover:bg-[#363940] text-[#9EA3AC] hover:text-white disabled:opacity-20 disabled:hover:bg-transparent transition cursor-pointer"
+                                    className="p-0.5 rounded hover:bg-[#363940] text-[#555861] hover:text-white disabled:opacity-20 disabled:hover:bg-transparent transition cursor-pointer"
                                     title="Bajar lección"
                                   >
                                     <ChevronDown className="w-3 h-3" />
                                   </button>
                                 </div>
 
-                                <FileText className="w-4 h-4 text-[#9EA3AC] shrink-0" />
+                                <FileText className="w-4 h-4 text-[#555861] shrink-0" />
 
                                 <div className="min-w-0">
-                                  <p className="text-xs font-bold text-white truncate">
+                                  <p className="text-xs font-bold text-[#2B2D33] truncate">
                                     {les.title}
                                   </p>
                                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -813,7 +826,7 @@ export default function CurriculumBuilder({
                                 <button
                                   type="button"
                                   onClick={() => handleStartEditLesson(mod, les)}
-                                  className="p-1.5 rounded-lg bg-[#363940] hover:bg-[#40444B] text-[#B8BDC7] hover:text-white transition cursor-pointer"
+                                  className="p-1.5 rounded-lg bg-[#363940] hover:bg-[#40444B] text-[#2B2D33] hover:text-white transition cursor-pointer"
                                   title="Editar lección"
                                 >
                                   <Edit2 className="w-3 h-3" />
@@ -828,7 +841,7 @@ export default function CurriculumBuilder({
                                       title: les.title,
                                     })
                                   }
-                                  className="p-1.5 rounded-lg bg-[#363940] hover:bg-rose-950 text-[#9EA3AC] hover:text-[#F2412C] transition cursor-pointer"
+                                  className="p-1.5 rounded-lg bg-[#363940] hover:bg-rose-950 text-[#555861] hover:text-[#F2412C] transition cursor-pointer"
                                   title="Borrar lección"
                                 >
                                   <Trash2 className="w-3 h-3" />
@@ -850,7 +863,7 @@ export default function CurriculumBuilder({
         {/* COLUMNA DERECHA: EDITOR CONTEXTUAL                      */}
         {/* ======================================================== */}
         <div className="lg:col-span-5 sticky top-20">
-          <div className="bg-[#2B2D33] border border-[#363940] rounded-3xl p-6 shadow-xl space-y-5">
+          <div className="bg-white border border-[#D1D5DB] rounded-3xl shadow-xs p-6 shadow-xl space-y-5">
             {editorMode.type === 'none' ? (
               /* Vista predeterminada cuando nada está seleccionado */
               <div className="py-10 px-4 text-center space-y-4">
@@ -859,7 +872,7 @@ export default function CurriculumBuilder({
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-white">Panel de Edición</h3>
-                  <p className="text-xs text-[#9EA3AC] mt-1 leading-relaxed">
+                  <p className="text-xs text-[#555861] mt-1 leading-relaxed">
                     Selecciona un módulo o lección a la izquierda para editar sus propiedades, o utiliza el botón para agregar nuevo contenido.
                   </p>
                 </div>
@@ -886,14 +899,14 @@ export default function CurriculumBuilder({
                   <button
                     type="button"
                     onClick={() => setEditorMode({ type: 'none' })}
-                    className="p-1 rounded-lg hover:bg-[#363940] text-[#9EA3AC] hover:text-white"
+                    className="p-1 rounded-lg hover:bg-[#363940] text-[#555861] hover:text-white"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-[#B8BDC7] block mb-1">
+                  <label className="text-xs font-bold text-[#2B2D33] block mb-1">
                     Título del Módulo *
                   </label>
                   <input
@@ -902,12 +915,12 @@ export default function CurriculumBuilder({
                     value={moduleTitle}
                     onChange={(e) => setModuleTitle(e.target.value)}
                     placeholder="ej. Módulo 1: Introducción a la Normativa"
-                    className="w-full bg-[#1A1C20] border border-[#40444B] rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#F2412C]"
+                    className="w-full bg-[#F8F9FA] border border-[#C9CDD4] rounded-xl text-[#2B2D33] focus:bg-white px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#F2412C]"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-[#B8BDC7] block mb-1">
+                  <label className="text-xs font-bold text-[#2B2D33] block mb-1">
                     Descripción del Módulo (Opcional)
                   </label>
                   <textarea
@@ -915,7 +928,7 @@ export default function CurriculumBuilder({
                     value={moduleDescription}
                     onChange={(e) => setModuleDescription(e.target.value)}
                     placeholder="Describe qué competencias se desarrollarán en este módulo..."
-                    className="w-full bg-[#1A1C20] border border-[#40444B] rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#F2412C] resize-none"
+                    className="w-full bg-[#F8F9FA] border border-[#C9CDD4] rounded-xl text-[#2B2D33] focus:bg-white px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#F2412C] resize-none"
                   />
                 </div>
 
@@ -924,7 +937,7 @@ export default function CurriculumBuilder({
                     type="button"
                     onClick={() => setEditorMode({ type: 'none' })}
                     disabled={savingAction}
-                    className="px-4 py-2 rounded-xl bg-[#363940] hover:bg-[#40444B] text-[#B8BDC7] text-xs font-bold transition cursor-pointer"
+                    className="px-4 py-2 rounded-xl bg-[#363940] hover:bg-[#40444B] text-[#2B2D33] text-xs font-bold transition cursor-pointer"
                   >
                     Cancelar
                   </button>
@@ -954,7 +967,7 @@ export default function CurriculumBuilder({
                       <h3 className="text-sm font-bold text-white">
                         {editorMode.type === 'new-lesson' ? 'Nueva Lección' : 'Editar Lección'}
                       </h3>
-                      <p className="text-[11px] text-[#9EA3AC]">
+                      <p className="text-[11px] text-[#555861]">
                         En módulo: {editorMode.module.title}
                       </p>
                     </div>
@@ -962,7 +975,7 @@ export default function CurriculumBuilder({
                   <button
                     type="button"
                     onClick={() => setEditorMode({ type: 'none' })}
-                    className="p-1 rounded-lg hover:bg-[#363940] text-[#9EA3AC] hover:text-white"
+                    className="p-1 rounded-lg hover:bg-[#363940] text-[#555861] hover:text-white"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -970,7 +983,7 @@ export default function CurriculumBuilder({
 
                 {/* Título de la Lección */}
                 <div>
-                  <label className="text-xs font-bold text-[#B8BDC7] block mb-1">
+                  <label className="text-xs font-bold text-[#2B2D33] block mb-1">
                     Título de la Lección *
                   </label>
                   <input
@@ -984,13 +997,13 @@ export default function CurriculumBuilder({
                       }
                     }}
                     placeholder="ej. Lección 1.1: Marco Legal y Regulación"
-                    className="w-full bg-[#1A1C20] border border-[#40444B] rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#F2412C]"
+                    className="w-full bg-[#F8F9FA] border border-[#C9CDD4] rounded-xl text-[#2B2D33] focus:bg-white px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#F2412C]"
                   />
                 </div>
 
                 {/* Descripción de la Lección */}
                 <div>
-                  <label className="text-xs font-bold text-[#B8BDC7] block mb-1">
+                  <label className="text-xs font-bold text-[#2B2D33] block mb-1">
                     Descripción / Notas de la Lección
                   </label>
                   <textarea
@@ -998,21 +1011,21 @@ export default function CurriculumBuilder({
                     value={lessonDescription}
                     onChange={(e) => setLessonDescription(e.target.value)}
                     placeholder="Resumen del contenido y puntos clave a revisar..."
-                    className="w-full bg-[#1A1C20] border border-[#40444B] rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#F2412C] resize-none"
+                    className="w-full bg-[#F8F9FA] border border-[#C9CDD4] rounded-xl text-[#2B2D33] focus:bg-white px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#F2412C] resize-none"
                   />
                 </div>
 
                 {/* ======================================================== */}
                 {/* SECCIÓN DE VIDEO EN LA LECCIÓN (V1.4)                     */}
                 {/* ======================================================== */}
-                <div className="space-y-3 bg-[#1A1C20]/80 p-4 rounded-2xl border border-[#363940]">
+                <div className="space-y-3 bg-[#F8F9FA] p-4 rounded-2xl border border-[#D1D5DB]">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold text-white flex items-center gap-1.5">
                       <Video className="w-4 h-4 text-[#F2412C]" />
                       <span>Video de YouTube</span>
                     </label>
                     {extractedYouTubeId && (
-                      <span className="text-[10px] font-mono text-[#9EA3AC] bg-[#2B2D33] px-2 py-0.5 rounded border border-[#363940]">
+                      <span className="text-[10px] font-mono text-[#555861] bg-[#2B2D33] px-2 py-0.5 rounded border border-[#363940]">
                         ID: {extractedYouTubeId}
                       </span>
                     )}
@@ -1032,7 +1045,7 @@ export default function CurriculumBuilder({
                           }
                         }}
                         placeholder="Pega un enlace de YouTube: https://www.youtube.com/watch?v=..."
-                        className="w-full bg-[#2B2D33] border border-[#40444B] rounded-xl pl-3 pr-8 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#F2412C]"
+                        className="w-full bg-white border border-[#C9CDD4] rounded-xl text-[#2B2D33] pl-3 pr-8 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#F2412C]"
                       />
                       {lessonVideoUrl && (
                         <button
@@ -1043,7 +1056,7 @@ export default function CurriculumBuilder({
                             setCurrentVideoData(null);
                             setLessonVideoId(null);
                           }}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9EA3AC] hover:text-white"
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#555861] hover:text-white"
                           title="Limpiar enlace"
                         >
                           <X className="w-3.5 h-3.5" />
@@ -1062,7 +1075,7 @@ export default function CurriculumBuilder({
                   {/* Desplegable opcional para reutilizar videos ya registrados */}
                   {availableVideos.length > 0 && (
                     <div className="pt-0.5">
-                      <details className="text-[11px] text-[#9EA3AC] group">
+                      <details className="text-[11px] text-[#555861] group">
                         <summary className="cursor-pointer hover:text-white transition list-none flex items-center gap-1 font-medium select-none">
                           <span>O elegir de videos ya registrados ({availableVideos.length})</span>
                           <ChevronDown className="w-3 h-3 group-open:rotate-180 transition" />
@@ -1096,7 +1109,7 @@ export default function CurriculumBuilder({
                     <div className="space-y-3 pt-3 border-t border-[#363940] animate-fade-in">
                       {/* Título del video */}
                       <div>
-                        <label className="text-[11px] font-bold text-[#B8BDC7] block mb-1">
+                        <label className="text-[11px] font-bold text-[#2B2D33] block mb-1">
                           Título del Video
                         </label>
                         <input
@@ -1104,7 +1117,7 @@ export default function CurriculumBuilder({
                           value={lessonVideoTitle}
                           onChange={(e) => setLessonVideoTitle(e.target.value)}
                           placeholder="Título descriptivo del video..."
-                          className="w-full bg-[#2B2D33] border border-[#40444B] rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#F2412C]"
+                          className="w-full bg-white border border-[#C9CDD4] rounded-xl text-[#2B2D33] px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#F2412C]"
                         />
                       </div>
 
@@ -1153,7 +1166,7 @@ export default function CurriculumBuilder({
                             )}
                           </div>
 
-                          <p className="text-xs font-bold text-white truncate">
+                          <p className="text-xs font-bold text-[#2B2D33] truncate">
                             {lessonVideoTitle || lessonTitle || `Video ID: ${extractedYouTubeId}`}
                           </p>
 
@@ -1164,7 +1177,7 @@ export default function CurriculumBuilder({
                           )}
 
                           {effectiveStatus === 'pending' && (
-                            <p className="text-[10px] text-[#9EA3AC] leading-relaxed">
+                            <p className="text-[10px] text-[#555861] leading-relaxed">
                               El administrador revisará el video y fijará su duración académica antes de que la lección pueda ser publicada.
                             </p>
                           )}
@@ -1179,7 +1192,7 @@ export default function CurriculumBuilder({
 
                       {/* Vista previa del reproductor interactivo */}
                       <div className="space-y-1.5">
-                        <span className="text-[11px] font-bold text-[#B8BDC7] flex items-center gap-1">
+                        <span className="text-[11px] font-bold text-[#2B2D33] flex items-center gap-1">
                           <Play className="w-3 h-3 text-[#F2412C]" /> Vista Previa del Reproductor:
                         </span>
                         <div className="aspect-video w-full rounded-2xl overflow-hidden bg-black border border-[#40444B] shadow-lg">
@@ -1198,7 +1211,7 @@ export default function CurriculumBuilder({
 
                 {/* Estado de la Lección (Borrador vs Publicada) */}
                 <div>
-                  <label className="text-xs font-bold text-[#B8BDC7] block mb-1">
+                  <label className="text-xs font-bold text-[#2B2D33] block mb-1">
                     Estado de Publicación
                   </label>
                   <div className="grid grid-cols-2 gap-2">
@@ -1208,7 +1221,7 @@ export default function CurriculumBuilder({
                       className={`py-2 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
                         lessonStatus === 'draft'
                           ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
-                          : 'bg-[#1A1C20] text-[#9EA3AC] border-[#363940] hover:bg-[#363940]'
+                          : 'bg-[#1A1C20] text-[#555861] border-[#363940] hover:bg-[#363940]'
                       }`}
                     >
                       <Lock className="w-3 h-3" />
@@ -1228,7 +1241,7 @@ export default function CurriculumBuilder({
                       className={`py-2 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
                         lessonStatus === 'published'
                           ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50'
-                          : 'bg-[#1A1C20] text-[#9EA3AC] border-[#363940] hover:bg-[#363940]'
+                          : 'bg-[#1A1C20] text-[#555861] border-[#363940] hover:bg-[#363940]'
                       }`}
                     >
                       <Globe className="w-3 h-3" />
@@ -1242,7 +1255,7 @@ export default function CurriculumBuilder({
                     type="button"
                     onClick={() => setEditorMode({ type: 'none' })}
                     disabled={savingAction}
-                    className="px-4 py-2 rounded-xl bg-[#363940] hover:bg-[#40444B] text-[#B8BDC7] text-xs font-bold transition cursor-pointer"
+                    className="px-4 py-2 rounded-xl bg-[#363940] hover:bg-[#40444B] text-[#2B2D33] text-xs font-bold transition cursor-pointer"
                   >
                     Cancelar
                   </button>
@@ -1270,7 +1283,7 @@ export default function CurriculumBuilder({
       {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
       {deleteConfirm && deleteConfirm.isOpen && (
         <div className="fixed inset-0 z-50 bg-[#1A1C20]/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#2B2D33] border border-[#363940] rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-fade-in">
+          <div className="bg-white border border-[#D1D5DB] rounded-3xl shadow-xs p-6 max-w-md w-full shadow-2xl space-y-4 animate-fade-in">
             <div className="flex items-center gap-3 text-rose-400">
               <div className="w-10 h-10 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
                 <Trash2 className="w-5 h-5" />
@@ -1279,11 +1292,11 @@ export default function CurriculumBuilder({
                 <h3 className="text-base font-bold text-white">
                   ¿Eliminar {deleteConfirm.type === 'module' ? 'módulo' : 'lección'}?
                 </h3>
-                <p className="text-xs text-[#9EA3AC]">Esta acción no se puede deshacer</p>
+                <p className="text-xs text-[#555861]">Esta acción no se puede deshacer</p>
               </div>
             </div>
 
-            <p className="text-xs text-[#B8BDC7] bg-[#1A1C20] p-3 rounded-xl border border-[#363940]">
+            <p className="text-xs text-[#2B2D33] bg-[#1A1C20] p-3 rounded-xl border border-[#363940]">
               Se eliminará:{' '}
               <span className="font-bold text-white">"{deleteConfirm.title}"</span>
               {deleteConfirm.type === 'module' &&
@@ -1294,7 +1307,7 @@ export default function CurriculumBuilder({
               <button
                 type="button"
                 onClick={() => setDeleteConfirm(null)}
-                className="px-4 py-2 rounded-xl bg-[#363940] hover:bg-[#40444B] text-[#B8BDC7] text-xs font-bold transition cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-[#363940] hover:bg-[#40444B] text-[#2B2D33] text-xs font-bold transition cursor-pointer"
               >
                 Cancelar
               </button>
@@ -1316,6 +1329,25 @@ export default function CurriculumBuilder({
           </div>
         </div>
       )}
+      {/* MODAL DE LISTA DE VERIFICACIÓN PARA PUBLICAR CURSO (V1.5) */}
+      <PublishChecklistModal
+        isOpen={isPublishModalOpen}
+        course={course}
+        onClose={() => setIsPublishModalOpen(false)}
+        onSuccess={() => {
+          setIsPublishModalOpen(false);
+          loadCurriculum();
+        }}
+        onGoToEditCourse={() => {
+          setIsPublishModalOpen(false);
+          onBack();
+        }}
+        onGoToCurriculum={() => {
+          setIsPublishModalOpen(false);
+          loadCurriculum();
+        }}
+        showToast={showToast}
+      />
     </div>
   );
 }

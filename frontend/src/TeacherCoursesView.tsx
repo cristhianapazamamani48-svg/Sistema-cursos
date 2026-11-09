@@ -8,21 +8,17 @@ import {
   Globe,
   EyeOff,
   Eye,
-  CheckCircle2,
   Clock,
   Search,
   Filter,
   X,
-  Sparkles,
   Loader2,
-  ExternalLink,
-  GraduationCap,
-  Image as ImageIcon,
   Tag,
 } from 'lucide-react';
 import { api } from './api';
 import CourseFormWizard from './CourseFormWizard';
 import CurriculumBuilder from './CurriculumBuilder';
+import PublishChecklistModal from './PublishChecklistModal';
 
 export interface ManagedCourse {
   id: number;
@@ -66,12 +62,16 @@ export default function TeacherCoursesView({
   // Control del Wizard en 3 Pasos (Nuevo Curso o Editar)
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [wizardCourse, setWizardCourse] = useState<ManagedCourse | null>(null);
+  const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
 
   // Control del Constructor de Temario
   const [selectedCourseForCurriculum, setSelectedCourseForCurriculum] =
     useState<ManagedCourse | null>(null);
 
-  // Estado para el toggle de publicación directo
+  // Control del Modal de Lista de Verificación para Publicar (V1.5)
+  const [publishingCourse, setPublishingCourse] = useState<ManagedCourse | null>(null);
+
+  // Estado para el toggle de publicación directo (para pasar a borrador)
   const [togglingStatusId, setTogglingStatusId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -99,40 +99,44 @@ export default function TeacherCoursesView({
   // Abrir wizard en modo nuevo curso
   const handleOpenNewCourse = () => {
     setWizardCourse(null);
+    setWizardStep(1);
     setIsWizardOpen(true);
   };
 
-  // Abrir wizard en modo edición
-  const handleOpenEdit = (course: ManagedCourse) => {
+  // Abrir wizard en modo edición en un paso específico
+  const handleOpenEdit = (course: ManagedCourse, step: 1 | 2 | 3 = 1) => {
     setWizardCourse(course);
+    setWizardStep(step);
     setIsWizardOpen(true);
   };
 
-  // Cambiar estado publicado / borrador con un solo clic
-  const handleToggleStatus = async (course: ManagedCourse) => {
-    const nextStatus = course.status === 'published' ? 'draft' : 'published';
+  // Manejar clic en botón de publicación
+  const handlePublishClick = (course: ManagedCourse) => {
+    if (course.status === 'draft') {
+      // V1.5: Abrir modal con lista de verificación
+      setPublishingCourse(course);
+    } else {
+      // Si ya está publicado, cambiar a borrador directamente
+      handleToggleToDraft(course);
+    }
+  };
+
+  const handleToggleToDraft = async (course: ManagedCourse) => {
     setTogglingStatusId(course.id);
     try {
       const res = await api(`/api/courses/${course.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ status: nextStatus }),
+        body: JSON.stringify({ status: 'draft' }),
       });
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.message || 'Error al cambiar estado');
+        throw new Error(data.message || 'Error al cambiar a borrador');
       }
 
-      showToast(
-        'success',
-        nextStatus === 'published'
-          ? `El curso "${course.title}" ahora está Publicado.`
-          : `El curso "${course.title}" se cambió a Borrador.`
-      );
-
-      // Actualizar estado local inmediatamente
+      showToast('info', `El curso "${course.title}" se cambió a Borrador.`);
       setCourses((prev) =>
-        prev.map((c) => (c.id === course.id ? { ...c, status: nextStatus } : c))
+        prev.map((c) => (c.id === course.id ? { ...c, status: 'draft' } : c))
       );
     } catch (err: any) {
       showToast('error', err.message || 'No se pudo cambiar el estado');
@@ -167,19 +171,19 @@ export default function TeacherCoursesView({
   }
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-6 animate-fade-in text-[#2B2D33]">
       {/* Cabecera Principal */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#363940]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#D1D5DB]">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-black text-[#2B2D33] tracking-tight">
               Mis Cursos
             </h1>
-            <span className="text-xs uppercase font-extrabold px-2.5 py-1 rounded-lg bg-[#F2412C]/20 text-[#F2412C] border border-[#F2412C]/30">
+            <span className="text-xs uppercase font-extrabold px-2.5 py-1 rounded-lg bg-[#2B2D33] text-[#E4E6EA]">
               {currentUser.role === 'docente' ? 'Panel Docente' : 'Panel Administrador'}
             </span>
           </div>
-          <p className="text-xs sm:text-sm text-[#9EA3AC] mt-1">
+          <p className="text-xs sm:text-sm text-[#555861] mt-1">
             Gestiona tus programas educativos, revisa módulos y lecciones, y publica contenidos para tus estudiantes.
           </p>
         </div>
@@ -187,7 +191,7 @@ export default function TeacherCoursesView({
         {/* Botón Destacado: + Nuevo curso */}
         <button
           onClick={handleOpenNewCourse}
-          className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-r from-[#F2412C] to-[#C82E1C] hover:from-blue-500 hover:to-[#C82E1C] text-white font-bold text-sm shadow-xl shadow-[#F2412C]/30 hover:shadow-[#F2412C]/40 hover:scale-[1.02] active:scale-[0.98] transition cursor-pointer shrink-0"
+          className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#F2412C] hover:bg-[#D93522] text-white font-bold text-sm shadow-lg shadow-[#F2412C]/25 hover:scale-[1.02] active:scale-[0.98] transition cursor-pointer shrink-0"
         >
           <Plus className="w-5 h-5 stroke-[2.5]" />
           <span>+ Nuevo curso</span>
@@ -195,7 +199,7 @@ export default function TeacherCoursesView({
       </div>
 
       {/* Barra de Filtros y Búsqueda */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-[#2B2D33]/60 p-3 rounded-2xl border border-[#363940]">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-[#D1D5DB] shadow-xs">
         {/* Input de Búsqueda */}
         <div className="relative flex-1">
           <Search className="w-4 h-4 text-[#9EA3AC] absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -204,12 +208,12 @@ export default function TeacherCoursesView({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar por título, temática, categoría o slug..."
-            className="w-full bg-[#1A1C20]/80 border border-[#40444B]/80 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#F2412C] transition"
+            className="w-full bg-[#F8F9FA] border border-[#D1D5DB] rounded-xl pl-9 pr-4 py-2 text-xs text-[#2B2D33] placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#F2412C] transition"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#636870] hover:text-white"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9EA3AC] hover:text-[#2B2D33]"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -218,7 +222,7 @@ export default function TeacherCoursesView({
 
         {/* Filtros por Estado */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
-          <span className="text-[11px] font-bold text-[#9EA3AC] px-1 hidden lg:inline-flex items-center gap-1">
+          <span className="text-[11px] font-bold text-[#555861] px-1 hidden lg:inline-flex items-center gap-1">
             <Filter className="w-3 h-3" /> Estado:
           </span>
           {(['all', 'published', 'draft'] as const).map((st) => {
@@ -239,16 +243,16 @@ export default function TeacherCoursesView({
                 onClick={() => setStatusFilter(st)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
                   statusFilter === st
-                    ? 'bg-[#F2412C] text-white shadow-md shadow-[#F2412C]/30'
-                    : 'bg-[#1A1C20]/60 text-[#9EA3AC] hover:text-white hover:bg-[#363940]/60 border border-[#363940]'
+                    ? 'bg-[#2B2D33] text-white shadow-sm'
+                    : 'bg-[#F0F2F5] text-[#555861] hover:text-[#2B2D33] hover:bg-slate-200 border border-transparent'
                 }`}
               >
                 <span>{label}</span>
                 <span
                   className={`text-[10px] px-1.5 py-0.2 rounded-full ${
                     statusFilter === st
-                      ? 'bg-blue-800 text-white'
-                      : 'bg-[#363940] text-[#9EA3AC]'
+                      ? 'bg-[#F2412C] text-white'
+                      : 'bg-white text-[#555861] border border-[#D1D5DB]'
                   }`}
                 >
                   {count}
@@ -262,68 +266,22 @@ export default function TeacherCoursesView({
       {/* Spinner de Carga */}
       {loading ? (
         <div className="py-24 flex flex-col items-center justify-center space-y-3">
-          <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-          <p className="text-xs text-[#9EA3AC] font-medium">Cargando tus cursos...</p>
+          <Loader2 className="w-8 h-8 text-[#F2412C] animate-spin" />
+          <p className="text-xs text-[#555861] font-medium">Cargando tus cursos...</p>
         </div>
       ) : filteredCourses.length === 0 ? (
         /* ESTADO VACÍO CON ILUSTRACIÓN Y MENSAJE */
-        <div className="bg-gradient-to-b from-[#2B2D33]/90 to-[#1A1C20] border border-[#363940]/80 rounded-3xl p-8 sm:p-14 text-center max-w-2xl mx-auto shadow-2xl relative overflow-hidden">
-          <div className="absolute -top-24 -left-24 w-60 h-60 bg-[#F2412C]/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-24 -right-24 w-60 h-60 bg-[#F2412C]/10 rounded-full blur-3xl pointer-events-none" />
-
-          {/* Ilustración SVG Estilizada */}
-          <div className="relative mx-auto w-36 h-36 mb-6 flex items-center justify-center">
-            <svg
-              className="w-full h-full drop-shadow-[0_15px_25px_rgba(242,65,44,0.25)]"
-              viewBox="0 0 200 200"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <circle cx="100" cy="100" r="85" fill="url(#circleGrad)" fillOpacity="0.15" />
-              <circle cx="100" cy="100" r="75" stroke="#F2412C" strokeWidth="1.5" strokeDasharray="4 4" strokeOpacity="0.4" />
-
-              <rect x="45" y="45" width="110" height="85" rx="14" fill="#1A1C20" stroke="#1e293b" strokeWidth="2.5" />
-              <rect x="52" y="52" width="96" height="71" rx="9" fill="#1A1C20" />
-
-              <rect x="62" y="66" width="45" height="6" rx="3" fill="#F2412C" />
-              <rect x="62" y="78" width="76" height="4" rx="2" fill="#636870" fillOpacity="0.7" />
-              <rect x="62" y="87" width="60" height="4" rx="2" fill="#50545C" fillOpacity="0.7" />
-              
-              <circle cx="125" cy="69" r="8" fill="#10b981" fillOpacity="0.25" stroke="#10b981" strokeWidth="1.2" />
-              <polygon points="123,66 128,69 123,72" fill="#34d399" />
-
-              <path
-                d="M60 145C72 138 88 138 100 143C112 138 128 138 140 145V168C128 161 112 161 100 166C88 161 72 161 60 168V145Z"
-                fill="url(#bookGrad)"
-                stroke="#F2412C"
-                strokeWidth="2"
-              />
-              <path d="M100 143V166" stroke="#c7d2fe" strokeWidth="1.5" strokeLinecap="round" />
-
-              <path
-                d="M152 40L154 46L160 48L154 50L152 56L150 50L144 48L150 46L152 40Z"
-                fill="#fbbf24"
-              />
-              <circle cx="48" cy="115" r="3.5" fill="#F87060" />
-              <circle cx="156" cy="120" r="2.5" fill="#F87060" />
-
-              <defs>
-                <linearGradient id="circleGrad" x1="20" y1="20" x2="180" y2="180" gradientUnits="userSpaceOnUse">
-                  <stop stopColor="#F2412C" />
-                  <stop offset="1" stopColor="#C82E1C" />
-                </linearGradient>
-                <linearGradient id="bookGrad" x1="60" y1="138" x2="140" y2="168" gradientUnits="userSpaceOnUse">
-                  <stop stopColor="#C82E1C" />
-                  <stop offset="1" stopColor="#F2412C" />
-                </linearGradient>
-              </defs>
-            </svg>
+        <div className="bg-white border border-[#D1D5DB] rounded-3xl p-8 sm:p-14 text-center max-w-2xl mx-auto shadow-sm relative overflow-hidden">
+          <div className="relative mx-auto w-32 h-32 mb-6 flex items-center justify-center">
+            <div className="w-24 h-24 rounded-3xl bg-[#E4E6EA] border border-[#D1D5DB] flex items-center justify-center text-[#2B2D33]">
+              <BookOpen className="w-12 h-12 text-[#2B2D33]/70" />
+            </div>
           </div>
 
           {searchQuery || statusFilter !== 'all' ? (
-            <div className="space-y-3 relative z-10">
-              <h3 className="text-xl font-bold text-white">No se encontraron cursos coincidentes</h3>
-              <p className="text-xs sm:text-sm text-[#9EA3AC] max-w-md mx-auto">
+            <div className="space-y-3">
+              <h3 className="text-lg font-bold text-[#2B2D33]">No se encontraron cursos coincidentes</h3>
+              <p className="text-xs text-[#555861] max-w-md mx-auto">
                 No hay cursos que coincidan con tus términos de búsqueda o filtros seleccionados.
               </p>
               <div className="pt-2">
@@ -332,24 +290,24 @@ export default function TeacherCoursesView({
                     setSearchQuery('');
                     setStatusFilter('all');
                   }}
-                  className="px-4 py-2 rounded-xl bg-[#363940] hover:bg-[#40444B] text-xs font-bold text-[#B8BDC7] transition"
+                  className="px-4 py-2 rounded-xl bg-[#2B2D33] hover:bg-[#3B3E46] text-xs font-bold text-white transition cursor-pointer"
                 >
                   Restablecer filtros
                 </button>
               </div>
             </div>
           ) : (
-            <div className="space-y-3 relative z-10">
-              <h3 className="text-xl sm:text-2xl font-black text-white">
+            <div className="space-y-3">
+              <h3 className="text-xl sm:text-2xl font-black text-[#2B2D33]">
                 Aún no tienes cursos en tu catálogo
               </h3>
-              <p className="text-xs sm:text-sm text-[#9EA3AC] max-w-md mx-auto leading-relaxed">
+              <p className="text-xs sm:text-sm text-[#555861] max-w-md mx-auto leading-relaxed">
                 Comienza creando tu primer curso con nuestro formulario en 3 pasos (Información, Precio y Portada). Podrás guardarlo como borrador y organizar módulos cuando gustes.
               </p>
               <div className="pt-4">
                 <button
                   onClick={handleOpenNewCourse}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-[#F2412C] hover:bg-[#F5543F] text-white text-xs sm:text-sm font-bold shadow-lg shadow-[#F2412C]/30 hover:scale-105 transition cursor-pointer"
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-[#F2412C] hover:bg-[#D93522] text-white text-xs sm:text-sm font-bold shadow-lg shadow-[#F2412C]/25 hover:scale-105 transition cursor-pointer"
                 >
                   <Plus className="w-4 h-4 stroke-[2.5]" />
                   <span>+ Crear mi primer curso</span>
@@ -359,7 +317,7 @@ export default function TeacherCoursesView({
           )}
         </div>
       ) : (
-        /* GRILLA DE TARJETAS DE CURSOS */
+        /* GRILLA DE TARJETAS DE CURSOS (FONDO BLANCO, DETALLES GRAFITO/ROJO) */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredCourses.map((course) => {
             const isPublished = course.status === 'published';
@@ -369,11 +327,11 @@ export default function TeacherCoursesView({
             return (
               <div
                 key={course.id}
-                className="group bg-[#2B2D33] border border-[#363940]/90 hover:border-[#40444B] rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-blue-500/5 transition flex flex-col justify-between"
+                className="group bg-white border border-[#D1D5DB] hover:border-[#2B2D33]/40 rounded-3xl overflow-hidden shadow-xs hover:shadow-md transition flex flex-col justify-between"
               >
                 <div>
                   {/* Portada / Thumbnail con Badges */}
-                  <div className="relative h-48 w-full bg-[#1A1C20] overflow-hidden">
+                  <div className="relative h-48 w-full bg-[#2B2D33] overflow-hidden">
                     {course.thumbnailUrl ? (
                       <img
                         src={course.thumbnailUrl}
@@ -384,32 +342,32 @@ export default function TeacherCoursesView({
                         }}
                       />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-tr from-[#1A1C20] via-[#2B2D33] to-[#2D1210]/60 flex flex-col items-center justify-center p-6 text-center border-b border-[#363940]">
-                        <div className="w-12 h-12 rounded-2xl bg-[#F2412C]/20 border border-[#F2412C]/30 flex items-center justify-center text-[#F2412C] mb-2 group-hover:scale-110 transition">
+                      <div className="w-full h-full bg-gradient-to-tr from-[#2B2D33] to-[#3B3E46] flex flex-col items-center justify-center p-6 text-center">
+                        <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-white mb-2">
                           <BookOpen className="w-6 h-6" />
                         </div>
-                        <span className="text-xs font-bold text-[#9EA3AC] line-clamp-1 max-w-[200px]">
+                        <span className="text-xs font-bold text-[#E4E6EA] line-clamp-1 max-w-[200px]">
                           {course.slug}
                         </span>
                       </div>
                     )}
 
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#1A1C20] via-transparent to-transparent pointer-events-none opacity-80" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
 
                     {/* Badge de Estado: Borrador / Publicado */}
                     <div className="absolute top-3 left-3">
                       {isPublished ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-emerald-950/90 text-emerald-300 border border-emerald-500/40 shadow-lg shadow-black/40">
-                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-emerald-600 text-white shadow-md">
+                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                           Publicado
                         </span>
                       ) : isDraft ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-amber-950/90 text-amber-300 border border-amber-500/40 shadow-lg shadow-black/40">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-[#2B2D33]/90 text-amber-300 border border-amber-400/40 shadow-md">
                           <EyeOff className="w-3 h-3 text-amber-400" />
                           Borrador
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-purple-950/90 text-purple-300 border border-purple-500/40 shadow-lg shadow-black/40">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-purple-700 text-white shadow-md">
                           Archivado
                         </span>
                       )}
@@ -417,7 +375,7 @@ export default function TeacherCoursesView({
 
                     {/* Badge de Precio / Gratis (BOB) */}
                     <div className="absolute top-3 right-3">
-                      <span className="px-2.5 py-1 rounded-xl text-[11px] font-black bg-[#1A1C20]/90 text-white border border-[#40444B]/80 shadow-lg">
+                      <span className="px-2.5 py-1 rounded-xl text-[11px] font-black bg-white/95 text-[#2B2D33] border border-white/40 shadow-md">
                         {Number(course.price) === 0
                           ? 'GRATIS'
                           : `${course.price} ${course.currency}`}
@@ -427,7 +385,7 @@ export default function TeacherCoursesView({
                     {/* Badge Categoría si existe */}
                     {course.category && (
                       <div className="absolute bottom-2.5 left-3">
-                        <span className="text-[10px] font-bold text-[#F87060] bg-[#2B2D33]/95 px-2.5 py-0.5 rounded-md border border-[#363940] flex items-center gap-1 shadow-md">
+                        <span className="text-[10px] font-bold text-white bg-[#2B2D33]/90 px-2.5 py-0.5 rounded-md border border-white/20 flex items-center gap-1 shadow-md">
                           <Tag className="w-3 h-3 text-[#F2412C]" /> {course.category}
                         </span>
                       </div>
@@ -439,78 +397,78 @@ export default function TeacherCoursesView({
                     <div>
                       <h3
                         title={course.title}
-                        className="text-base font-bold text-white group-hover:text-[#F2412C] transition line-clamp-1"
+                        className="text-base font-bold text-[#2B2D33] group-hover:text-[#F2412C] transition line-clamp-1"
                       >
                         {course.title}
                       </h3>
-                      <p className="text-[11px] font-mono text-[#636870] mt-0.5 truncate">
+                      <p className="text-[11px] font-mono text-[#555861] mt-0.5 truncate">
                         /courses/{course.slug}
                       </p>
                     </div>
 
-                    <p className="text-xs text-[#9EA3AC] line-clamp-2 min-h-[32px] leading-relaxed">
+                    <p className="text-xs text-[#555861] line-clamp-2 min-h-[32px] leading-relaxed">
                       {course.description || 'Sin descripción redactada aún.'}
                     </p>
 
                     {/* Métricas: Nº de módulos y lecciones */}
-                    <div className="flex items-center justify-between pt-2 border-t border-[#363940]/80 text-xs text-[#B8BDC7]">
+                    <div className="flex items-center justify-between pt-2 border-t border-[#E4E6EA] text-xs text-[#555861]">
                       <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1.5 bg-[#1A1C20]/60 border border-[#363940] px-2.5 py-1 rounded-xl">
-                          <Layers className="w-3.5 h-3.5 text-[#F2412C] shrink-0" />
-                          <span className="font-bold text-white">{course.modulesCount}</span>
-                          <span className="text-[#9EA3AC] text-[11px]">
+                        <div className="flex items-center gap-1.5 bg-[#F0F2F5] border border-[#D1D5DB] px-2.5 py-1 rounded-xl">
+                          <Layers className="w-3.5 h-3.5 text-[#2B2D33] shrink-0" />
+                          <span className="font-bold text-[#2B2D33]">{course.modulesCount}</span>
+                          <span className="text-[#555861] text-[11px]">
                             {course.modulesCount === 1 ? 'módulo' : 'módulos'}
                           </span>
                         </div>
 
-                        <div className="flex items-center gap-1.5 bg-[#1A1C20]/60 border border-[#363940] px-2.5 py-1 rounded-xl">
-                          <FileText className="w-3.5 h-3.5 text-[#F2412C] shrink-0" />
-                          <span className="font-bold text-white">{course.lessonsCount}</span>
-                          <span className="text-[#9EA3AC] text-[11px]">
+                        <div className="flex items-center gap-1.5 bg-[#F0F2F5] border border-[#D1D5DB] px-2.5 py-1 rounded-xl">
+                          <FileText className="w-3.5 h-3.5 text-[#2B2D33] shrink-0" />
+                          <span className="font-bold text-[#2B2D33]">{course.lessonsCount}</span>
+                          <span className="text-[#555861] text-[11px]">
                             {course.lessonsCount === 1 ? 'lección' : 'lecciones'}
                           </span>
                         </div>
                       </div>
 
-                      <div className="text-[11px] text-[#9EA3AC] flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-[#F2412C]" /> {course.minWatchPercentage}% req.
+                      <div className="text-[11px] text-[#555861] flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-[#2B2D33]" /> {course.minWatchPercentage}% req.
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* BOTONES DE ACCIÓN: Temario / Editar / Publicar / Ver como estudiante */}
-                <div className="p-4 bg-[#1A1C20]/50 border-t border-[#363940]/80 grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {/* Botón 1: Temario (Constructor de temario) */}
+                {/* BOTONES DE ACCIÓN: Temario / Editar / Publicar / Ver alumno */}
+                <div className="p-3 bg-[#F8F9FA] border-t border-[#E4E6EA] grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {/* Botón 1: Temario */}
                   <button
                     onClick={() => setSelectedCourseForCurriculum(course)}
-                    className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-[#F2412C]/30 hover:bg-[#F2412C] text-[#FAA99F] hover:text-white border border-[#F2412C]/40 text-xs font-bold transition cursor-pointer"
-                    title="Construir temario: agregar, editar, borrar y ordenar módulos y lecciones"
+                    className="flex items-center justify-center gap-1 py-2 px-2 rounded-xl bg-[#2B2D33] hover:bg-[#3B3E46] text-white text-xs font-bold transition cursor-pointer shadow-xs"
+                    title="Construir temario: módulos y lecciones"
                   >
-                    <Layers className="w-3.5 h-3.5 text-[#F87060]" />
+                    <Layers className="w-3.5 h-3.5" />
                     <span>Temario</span>
                   </button>
 
-                  {/* Botón 2: Editar (Abre el Wizard reutilizable) */}
+                  {/* Botón 2: Editar */}
                   <button
-                    onClick={() => handleOpenEdit(course)}
-                    className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-[#363940] hover:bg-[#40444B] text-slate-200 hover:text-white text-xs font-bold transition cursor-pointer border border-[#40444B]/60"
+                    onClick={() => handleOpenEdit(course, 1)}
+                    className="flex items-center justify-center gap-1 py-2 px-2 rounded-xl bg-white hover:bg-slate-100 text-[#2B2D33] text-xs font-bold transition cursor-pointer border border-[#D1D5DB]"
                     title="Editar información, precio y portada"
                   >
-                    <Edit3 className="w-3.5 h-3.5 text-[#B8BDC7]" />
+                    <Edit3 className="w-3.5 h-3.5" />
                     <span>Editar</span>
                   </button>
 
-                  {/* Botón 3: Publicar / Borrador */}
+                  {/* Botón 3: Publicar con Checklist (V1.5) o Cambiar a Borrador */}
                   <button
-                    onClick={() => handleToggleStatus(course)}
+                    onClick={() => handlePublishClick(course)}
                     disabled={isToggling}
-                    className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
+                    className={`flex items-center justify-center gap-1 py-2 px-2 rounded-xl text-xs font-bold transition cursor-pointer border ${
                       isPublished
-                        ? 'bg-amber-950/40 hover:bg-amber-900/60 text-amber-300 border-amber-500/40'
-                        : 'bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 border-emerald-500/40'
+                        ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300'
+                        : 'bg-[#F2412C] hover:bg-[#D93522] text-white border-[#F2412C] shadow-sm shadow-[#F2412C]/25'
                     }`}
-                    title={isPublished ? 'Cambiar a estado borrador' : 'Publicar curso para estudiantes'}
+                    title={isPublished ? 'Cambiar a borrador' : 'Publicar curso (abre lista de verificación)'}
                   >
                     {isToggling ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -530,11 +488,11 @@ export default function TeacherCoursesView({
                   {/* Botón 4: Ver como estudiante */}
                   <button
                     onClick={() => onViewAsStudent(course.slug)}
-                    className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-[#363940]/80 hover:bg-[#40444B] text-[#B8BDC7] hover:text-white border border-[#40444B]/80 text-xs font-bold transition cursor-pointer"
-                    title="Previsualizar temario y contenido como estudiante"
+                    className="flex items-center justify-center gap-1 py-2 px-2 rounded-xl bg-white hover:bg-slate-100 text-[#555861] hover:text-[#2B2D33] border border-[#D1D5DB] text-xs font-bold transition cursor-pointer"
+                    title="Previsualizar como estudiante"
                   >
                     <Eye className="w-3.5 h-3.5" />
-                    <span className="truncate">Ver alumno</span>
+                    <span className="truncate">Ver</span>
                   </button>
                 </div>
               </div>
@@ -551,7 +509,22 @@ export default function TeacherCoursesView({
           setWizardCourse(null);
         }}
         initialCourse={wizardCourse}
+        initialStep={wizardStep}
         onSuccess={loadCourses}
+        showToast={showToast}
+      />
+
+      {/* MODAL DE LISTA DE VERIFICACIÓN PARA PUBLICAR CURSO (V1.5) */}
+      <PublishChecklistModal
+        isOpen={Boolean(publishingCourse)}
+        course={publishingCourse}
+        onClose={() => setPublishingCourse(null)}
+        onSuccess={() => {
+          setPublishingCourse(null);
+          loadCourses();
+        }}
+        onGoToEditCourse={(c, step) => handleOpenEdit(c, step)}
+        onGoToCurriculum={(c) => setSelectedCourseForCurriculum(c)}
         showToast={showToast}
       />
     </div>

@@ -31,6 +31,7 @@ interface CourseFormWizardProps {
   isOpen: boolean;
   onClose: () => void;
   initialCourse?: ManagedCourse | null;
+  initialStep?: 1 | 2 | 3;
   onSuccess: () => void;
   showToast: (type: 'success' | 'error' | 'info', text: string) => void;
 }
@@ -39,6 +40,7 @@ export default function CourseFormWizard({
   isOpen,
   onClose,
   initialCourse,
+  initialStep = 1,
   onSuccess,
   showToast,
 }: CourseFormWizardProps) {
@@ -97,7 +99,7 @@ export default function CourseFormWizard({
     }
     setErrors({});
     setTouched({});
-    setCurrentStep(1);
+    setCurrentStep(initialStep || 1);
     setImgError(false);
   }, [initialCourse, isOpen]);
 
@@ -333,10 +335,10 @@ export default function CourseFormWizard({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#1A1C20]/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-[#2B2D33] border border-[#363940] rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden my-6 animate-fade-in flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 bg-[#2B2D33]/60 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-white border border-[#D1D5DB] text-[#2B2D33] rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden my-6 animate-fade-in flex flex-col max-h-[92vh]">
         {/* CABECERA DEL WIZARD */}
-        <div className="p-6 bg-[#1A1C20]/70 border-b border-[#363940] flex items-center justify-between">
+        <div className="p-6 bg-[#2B2D33] border-b border-[#363940] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#F2412C] to-[#C82E1C] flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
               <Sparkles className="w-5 h-5" />
@@ -362,7 +364,7 @@ export default function CourseFormWizard({
         </div>
 
         {/* INDICADOR DE LOS 3 PASOS */}
-        <div className="px-6 py-3.5 bg-[#2B2D33]/90 border-b border-[#363940]/80">
+        <div className="px-6 py-3.5 bg-[#E4E6EA]/70 border-b border-[#D1D5DB]">
           <div className="grid grid-cols-3 gap-2">
             {/* Paso 1 */}
             <button
@@ -462,7 +464,7 @@ export default function CourseFormWizard({
             <div className="space-y-4 animate-fade-in">
               {/* Título */}
               <div>
-                <label className="text-xs font-bold text-[#B8BDC7] flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-[#2B2D33] flex items-center justify-between mb-1">
                   <span>Título del Curso *</span>
                   <span className="text-[11px] text-[#9EA3AC] font-normal">
                     {title.length}/120
@@ -474,7 +476,7 @@ export default function CourseFormWizard({
                   onChange={(e) => handleTitleChange(e.target.value)}
                   onBlur={() => markTouched('title')}
                   placeholder="ej. Auditoría Financiera y Contabilidad Gubernamental"
-                  className={`w-full bg-[#1A1C20] border rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition ${
+                  className={`w-full bg-[#F8F9FA] border border-[#C9CDD4] rounded-xl px-4 py-2.5 text-xs text-[#2B2D33] focus:bg-white placeholder-slate-500 focus:outline-none transition ${
                     touched.title && errors.title
                       ? 'border-rose-500 focus:border-rose-500'
                       : 'border-[#40444B] focus:border-[#F2412C]'
@@ -491,7 +493,7 @@ export default function CourseFormWizard({
               {/* Slug Automático Editable */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-bold text-[#B8BDC7]">
+                  <label className="text-xs font-bold text-[#2B2D33]">
                     Slug / Enlace permanente *
                   </label>
                   <label className="text-[11px] text-[#9EA3AC] flex items-center gap-1.5 cursor-pointer">
@@ -512,7 +514,7 @@ export default function CourseFormWizard({
                   </label>
                 </div>
                 <div
-                  className={`flex items-center bg-[#1A1C20] border rounded-xl px-3 py-2 text-xs font-mono transition ${
+                  className={`flex items-center bg-[#F8F9FA] border border-[#C9CDD4] rounded-xl px-3 py-2 text-xs font-mono text-[#2B2D33] transition ${
                     touched.slug && errors.slug
                       ? 'border-rose-500'
                       : 'border-[#40444B] focus-within:border-[#F2412C]'
@@ -525,7 +527,7 @@ export default function CourseFormWizard({
                     onChange={(e) => handleSlugChange(e.target.value)}
                     onBlur={() => markTouched('slug')}
                     placeholder="auditoria-financiera-gubernamental"
-                    className="w-full bg-transparent text-white focus:outline-none ml-1"
+                    className="w-full bg-transparent text-[#2B2D33] focus:outline-none ml-1"
                   />
                 </div>
                 {touched.slug && errors.slug ? (
@@ -542,7 +544,7 @@ export default function CourseFormWizard({
 
               {/* Categoría */}
               <div>
-                <label className="text-xs font-bold text-[#B8BDC7] block mb-1">
+                <label className="text-xs font-bold text-[#2B2D33] block mb-1">
                   Categoría o Área Temática
                 </label>
                 <div className="space-y-2">
@@ -556,7 +558,7 @@ export default function CourseFormWizard({
                       }
                       validateField('category', e.target.value);
                     }}
-                    className="w-full bg-[#1A1C20] border border-[#40444B] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#F2412C]"
+                    className="w-full bg-[#F8F9FA] border border-[#C9CDD4] rounded-xl px-4 py-2.5 text-xs text-[#2B2D33] focus:bg-white focus:outline-none focus:border-[#F2412C]"
                   >
                     <option value="">-- Selecciona una categoría sugerida --</option>
                     {POPULAR_CATEGORIES.map((cat) => (
@@ -576,7 +578,7 @@ export default function CourseFormWizard({
                         validateField('category', e.target.value);
                       }}
                       placeholder="Escribe el nombre de tu categoría personalizada..."
-                      className="w-full bg-[#1A1C20] border border-[#40444B] rounded-xl px-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#F2412C]"
+                      className="w-full bg-[#F8F9FA] border border-[#C9CDD4] rounded-xl px-4 py-2 text-xs text-[#2B2D33] focus:bg-white placeholder-slate-500 focus:outline-none focus:border-[#F2412C]"
                     />
                   )}
                 </div>
@@ -584,7 +586,7 @@ export default function CourseFormWizard({
 
               {/* Descripción */}
               <div>
-                <label className="text-xs font-bold text-[#B8BDC7] block mb-1">
+                <label className="text-xs font-bold text-[#2B2D33] block mb-1">
                   Descripción del Curso
                 </label>
                 <textarea
@@ -595,7 +597,7 @@ export default function CourseFormWizard({
                     validateField('description', e.target.value);
                   }}
                   placeholder="Detalla los objetivos de aprendizaje, temarios y a quién va dirigido este curso..."
-                  className="w-full bg-[#1A1C20] border border-[#40444B] rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#F2412C] resize-none"
+                  className="w-full bg-[#F8F9FA] border border-[#C9CDD4] rounded-xl px-4 py-2.5 text-xs text-[#2B2D33] focus:bg-white placeholder-slate-500 focus:outline-none focus:border-[#F2412C] resize-none"
                 />
               </div>
             </div>
@@ -694,7 +696,7 @@ export default function CourseFormWizard({
               {/* Input de Precio en BOB (si es de pago) */}
               {!isFree && (
                 <div className="bg-[#1A1C20]/80 border border-[#363940] rounded-2xl p-4 space-y-2 animate-fade-in">
-                  <label className="text-xs font-bold text-[#B8BDC7] block">
+                  <label className="text-xs font-bold text-[#2B2D33] block">
                     Monto a cobrar (en Bolivianos - BOB) *
                   </label>
                   <div className="relative">
@@ -731,7 +733,7 @@ export default function CourseFormWizard({
               {/* Parámetro Académico: Aprobación Mínima (%) */}
               <div className="bg-[#1A1C20]/50 border border-[#363940] rounded-2xl p-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-[#B8BDC7] flex items-center gap-1.5">
+                  <label className="text-xs font-bold text-[#2B2D33] flex items-center gap-1.5">
                     <Clock className="w-4 h-4 text-[#F2412C]" />
                     <span>Requisito Mínimo de Visualización (%)</span>
                   </label>
@@ -773,7 +775,7 @@ export default function CourseFormWizard({
 
               {/* Input URL de Imagen */}
               <div>
-                <label className="text-xs font-bold text-[#B8BDC7] block mb-1">
+                <label className="text-xs font-bold text-[#2B2D33] block mb-1">
                   URL de la Imagen (HTTPS)
                 </label>
                 <div className="relative">
@@ -941,7 +943,7 @@ export default function CourseFormWizard({
               {/* Aviso de Guardado */}
               <div className="p-3.5 bg-[#2D1210]/40 border border-[#F2412C]/30 rounded-2xl flex items-start gap-3">
                 <Info className="w-4 h-4 text-[#F2412C] shrink-0 mt-0.5" />
-                <div className="text-xs text-[#B8BDC7]">
+                <div className="text-xs text-[#2B2D33]">
                   <span className="font-bold text-white block">
                     {isEditMode ? 'Actualización de Curso' : 'Guardado como Borrador'}
                   </span>
@@ -957,7 +959,7 @@ export default function CourseFormWizard({
         </div>
 
         {/* PIE DE PÁGINA CON BOTONES DE NAVEGACIÓN Y GUARDADO */}
-        <div className="p-4 sm:p-6 bg-[#1A1C20]/80 border-t border-[#363940] flex items-center justify-between gap-3">
+        <div className="p-4 sm:p-6 bg-[#E4E6EA]/60 border-t border-[#D1D5DB] flex items-center justify-between gap-3">
           <div>
             {currentStep > 1 ? (
               <button

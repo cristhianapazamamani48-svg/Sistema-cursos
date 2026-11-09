@@ -392,7 +392,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#1A1C20] text-[#E4E6EA] flex flex-col font-sans selection:bg-[#F2412C] selection:text-white">
+    <div className="min-h-screen bg-[#E4E6EA] text-[#2B2D33] flex flex-col font-sans selection:bg-[#F2412C] selection:text-white">
       {/* Toast Alert */}
       {toast && (
         <div
@@ -555,7 +555,7 @@ export default function App() {
             <div>
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h2 className="text-2xl font-black text-white">Cursos Disponibles</h2>
+                  <h2 className="text-2xl font-black text-[#2B2D33]">Cursos Disponibles</h2>
                   <p className="text-xs text-[#9EA3AC]">Selecciona un curso para ver su temario o inscribirte</p>
                 </div>
               </div>
@@ -592,7 +592,7 @@ export default function App() {
 
                       <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
                         <div className="space-y-2">
-                          <h3 className="text-lg font-bold text-white group-hover:text-[#F2412C] transition">
+                          <h3 className="text-lg font-bold text-[#2B2D33] group-hover:text-[#F2412C] transition">
                             {c.title}
                           </h3>
                           <p className="text-xs text-[#9EA3AC] line-clamp-2 leading-relaxed">
@@ -600,10 +600,10 @@ export default function App() {
                           </p>
                         </div>
 
-                        <div className="pt-4 border-t border-[#363940] flex items-center gap-3">
+                        <div className="pt-4 border-t border-[#E4E6EA] flex items-center gap-3">
                           <button
                             onClick={() => loadCourseDetail(c.slug)}
-                            className="flex-1 bg-[#363940] hover:bg-[#40444B] text-white text-xs font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2"
+                            className="flex-1 bg-white hover:bg-slate-100 text-[#2B2D33] border border-[#D1D5DB] text-xs font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2"
                           >
                             Ver Temario
                           </button>
@@ -644,7 +644,7 @@ export default function App() {
             </button>
 
             {/* Cabecera del Curso */}
-            <div className="bg-[#2B2D33] border border-[#363940] rounded-3xl p-8 shadow-2xl flex flex-col md:flex-row gap-8 items-start justify-between">
+            <div className="bg-white border border-[#D1D5DB] rounded-3xl p-8 shadow-xs flex flex-col md:flex-row gap-8 items-start justify-between">
               <div className="space-y-4 max-w-2xl">
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-black uppercase px-3 py-1 rounded-xl bg-[#F2412C]/20 text-[#F2412C] border border-[#F2412C]/30">
@@ -654,15 +654,15 @@ export default function App() {
                     <Clock className="w-3.5 h-3.5" /> Requisito de aprobación: {courseDetail.minWatchPercentage}%
                   </span>
                 </div>
-                <h1 className="text-3xl font-black text-white">{courseDetail.title}</h1>
+                <h1 className="text-3xl font-black text-[#2B2D33]">{courseDetail.title}</h1>
                 <p className="text-sm text-[#B8BDC7] leading-relaxed">{courseDetail.description}</p>
               </div>
 
               {/* Caja de Acción */}
-              <div className="bg-[#1A1C20] border border-[#363940] rounded-2xl p-6 w-full md:w-80 space-y-4 shrink-0">
+              <div className="bg-[#F8F9FA] border border-[#D1D5DB] rounded-2xl p-6 w-full md:w-80 space-y-4 shrink-0">
                 <div className="text-center space-y-1">
                   <span className="text-xs text-[#9EA3AC]">Inversión</span>
-                  <div className="text-3xl font-black text-white">
+                  <div className="text-3xl font-black text-[#2B2D33]">
                     {Number(courseDetail.price) === 0 ? 'Gratis' : `${courseDetail.price} ${courseDetail.currency}`}
                   </div>
                 </div>
@@ -695,17 +695,17 @@ export default function App() {
 
             {/* Temario de Módulos y Lecciones */}
             <div className="space-y-4">
-              <h2 className="text-xl font-black text-white">Temario del Curso</h2>
+              <h2 className="text-xl font-black text-[#2B2D33]">Temario del Curso</h2>
               <div className="space-y-3">
                 {courseDetail.modules.map((m) => (
-                  <div key={m.id} className="bg-[#2B2D33] border border-[#363940] rounded-2xl p-5 space-y-3">
+                  <div key={m.id} className="bg-white border border-[#D1D5DB] rounded-2xl p-5 space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-xl bg-[#363940] flex items-center justify-center font-bold text-xs text-[#F2412C]">
                           {m.orderIndex}
                         </div>
                         <div>
-                          <h3 className="text-sm font-bold text-white">{m.title}</h3>
+                          <h3 className="text-sm font-bold text-[#2B2D33]">{m.title}</h3>
                           {m.description && <p className="text-xs text-[#9EA3AC]">{m.description}</p>}
                         </div>
                       </div>
@@ -714,9 +714,9 @@ export default function App() {
                       </span>
                     </div>
 
-                    <div className="pl-11 space-y-2 border-t border-[#363940]/80 pt-3">
+                    <div className="pl-11 space-y-2 border-t border-[#E4E6EA] pt-3">
                       {m.lessons.map((l) => (
-                        <div key={l.id} className="flex items-center justify-between text-xs py-1.5 text-[#B8BDC7]">
+                        <div key={l.id} className="flex items-center justify-between text-xs py-1.5 text-[#2B2D33]">
                           <span className="flex items-center gap-2">
                             <FileText className="w-3.5 h-3.5 text-[#636870]" />
                             {l.title}
@@ -743,7 +743,7 @@ export default function App() {
               <div className="space-y-6">
                 {/* Selector de subvista solo si el staff tiene cursos como estudiante */}
                 {myCourses.length > 0 && (
-                  <div className="flex items-center gap-2 bg-[#2B2D33]/60 p-1.5 rounded-2xl border border-[#363940] w-fit">
+                  <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-[#D1D5DB] w-fit shadow-xs">
                     <button
                       onClick={() => setTeacherSubTab('teaching')}
                       className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
@@ -776,7 +776,7 @@ export default function App() {
                 ) : (
                   <div className="space-y-6">
                     <div>
-                      <h2 className="text-xl font-black text-white">Mis Cursos Inscritos</h2>
+                      <h2 className="text-xl font-black text-[#2B2D33]">Mis Cursos Inscritos</h2>
                       <p className="text-xs text-[#9EA3AC]">Tus inscripciones y avance como estudiante</p>
                     </div>
 
@@ -784,7 +784,7 @@ export default function App() {
                       {myCourses.map((c) => (
                         <div
                           key={c.enrollmentId}
-                          className="bg-[#2B2D33] border border-[#363940] rounded-3xl p-6 flex flex-col justify-between space-y-4 hover:border-[#40444B] transition"
+                          className="bg-white border border-[#D1D5DB] rounded-3xl p-6 flex flex-col justify-between space-y-4 hover:border-[#2B2D33]/30 transition shadow-xs"
                         >
                           <div className="space-y-3">
                             <div className="flex justify-between items-start">
@@ -800,11 +800,11 @@ export default function App() {
                               <span className="text-xs font-bold text-[#9EA3AC]">{c.progressPercentage}%</span>
                             </div>
 
-                            <h3 className="text-base font-bold text-white">{c.title}</h3>
+                            <h3 className="text-base font-bold text-[#2B2D33]">{c.title}</h3>
                             <p className="text-xs text-[#9EA3AC] line-clamp-2">{c.description}</p>
                           </div>
 
-                          <div className="space-y-3 pt-3 border-t border-[#363940]">
+                          <div className="space-y-3 pt-3 border-t border-[#E4E6EA]">
                             <div className="space-y-1.5">
                               <div className="w-full bg-[#363940] h-2 rounded-full overflow-hidden">
                                 <div
@@ -834,7 +834,7 @@ export default function App() {
               /* VISTA PARA ESTUDIANTES */
               <div className="space-y-8">
                 <div>
-                  <h1 className="text-2xl font-black text-white">Mis Cursos</h1>
+                  <h1 className="text-2xl font-black text-[#2B2D33]">Mis Cursos</h1>
                   <p className="text-xs text-[#9EA3AC]">Continúa con tus capacitaciones y revisa tu avance en tiempo real</p>
                 </div>
 
@@ -859,7 +859,7 @@ export default function App() {
                     {myCourses.map((c) => (
                       <div
                         key={c.enrollmentId}
-                        className="bg-[#2B2D33] border border-[#363940] rounded-3xl p-6 flex flex-col justify-between space-y-4 hover:border-[#40444B] transition"
+                        className="bg-white border border-[#D1D5DB] rounded-3xl p-6 flex flex-col justify-between space-y-4 hover:border-[#2B2D33]/30 transition shadow-xs"
                       >
                         <div className="space-y-3">
                           <div className="flex justify-between items-start">
@@ -875,11 +875,11 @@ export default function App() {
                             <span className="text-xs font-bold text-[#9EA3AC]">{c.progressPercentage}%</span>
                           </div>
 
-                          <h3 className="text-base font-bold text-white">{c.title}</h3>
+                          <h3 className="text-base font-bold text-[#2B2D33]">{c.title}</h3>
                           <p className="text-xs text-[#9EA3AC] line-clamp-2">{c.description}</p>
                         </div>
 
-                        <div className="space-y-3 pt-3 border-t border-[#363940]">
+                        <div className="space-y-3 pt-3 border-t border-[#E4E6EA]">
                           {/* Barra de progreso visual */}
                           <div className="space-y-1.5">
                             <div className="w-full bg-[#363940] h-2 rounded-full overflow-hidden">
@@ -913,19 +913,19 @@ export default function App() {
         {activeTab === 'classroom' && classroomData && (
           <div className="space-y-6 animate-fade-in">
             {/* Header del Aula */}
-            <div className="bg-[#2B2D33] border border-[#363940] rounded-3xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="bg-white border border-[#D1D5DB] rounded-3xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
               <div>
                 <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#F2412C] bg-[#F2412C]/10 px-2.5 py-0.5 rounded border border-[#F2412C]/20">
                   Aula Virtual
                 </span>
-                <h1 className="text-2xl font-black text-white mt-1">{classroomData.course.title}</h1>
+                <h1 className="text-2xl font-black text-[#2B2D33] mt-1">{classroomData.course.title}</h1>
               </div>
 
               {/* Progreso del curso */}
               <div className="flex items-center gap-6">
                 <div className="text-right">
                   <span className="text-xs text-[#9EA3AC]">Progreso Total</span>
-                  <div className="text-xl font-black text-white">
+                  <div className="text-xl font-black text-[#2B2D33]">
                     {classroomData.overallProgress.percentage}%
                   </div>
                 </div>
@@ -950,8 +950,8 @@ export default function App() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
               {/* Barra lateral de Temario y Candados */}
               <div className="lg:col-span-4 space-y-3">
-                <div className="bg-[#2B2D33] border border-[#363940] rounded-3xl p-5 space-y-4">
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <div className="bg-white border border-[#D1D5DB] rounded-3xl p-5 space-y-4 shadow-xs">
+                  <h3 className="text-sm font-bold text-[#2B2D33] flex items-center gap-2">
                     <Layers className="w-4 h-4 text-[#F2412C]" /> Contenido del Curso
                   </h3>
 
@@ -964,8 +964,8 @@ export default function App() {
                           key={m.id}
                           className={`rounded-2xl border transition-all ${
                             m.isLocked
-                              ? 'bg-[#1A1C20]/40 border-[#363940]/50 opacity-60'
-                              : 'bg-[#1A1C20]/90 border-[#363940]'
+                              ? 'bg-[#F0F2F5] border-[#E4E6EA] opacity-60'
+                              : 'bg-[#F8F9FA] border-[#D1D5DB]'
                           }`}
                         >
                           {/* Cabecera del Módulo */}
@@ -979,7 +979,7 @@ export default function App() {
                               ) : (
                                 <div className="w-2 h-2 rounded-full bg-[#F5543F] shrink-0"></div>
                               )}
-                              <span className="text-xs font-bold text-white line-clamp-1">{m.title}</span>
+                              <span className="text-xs font-bold text-[#2B2D33] line-clamp-1">{m.title}</span>
                             </div>
 
                             {!m.isLocked && (
@@ -1007,7 +1007,7 @@ export default function App() {
                                         ? 'bg-[#F2412C] text-white font-bold shadow-md shadow-[#F2412C]/30'
                                         : les.isCompleted
                                         ? 'bg-[#2B2D33]/60 hover:bg-[#363940] text-slate-200'
-                                        : 'bg-[#2B2D33]/40 hover:bg-[#363940] text-[#B8BDC7]'
+                                        : 'bg-white hover:bg-slate-100 text-[#2B2D33]'
                                     }`}
                                   >
                                     <div className="flex items-center gap-2 line-clamp-1">
@@ -1041,11 +1041,11 @@ export default function App() {
               {/* Área del Reproductor y Contenido Central */}
               <div className="lg:col-span-8 space-y-6">
                 {selectedLesson ? (
-                  <div className="bg-[#2B2D33] border border-[#363940] rounded-3xl p-6 space-y-6 shadow-2xl">
+                  <div className="bg-white border border-[#D1D5DB] rounded-3xl p-6 space-y-6 shadow-xs">
                     <div className="flex items-center justify-between">
                       <div>
                         <span className="text-xs text-[#F2412C] font-bold">Lección Actual</span>
-                        <h2 className="text-xl font-black text-white">{selectedLesson.title}</h2>
+                        <h2 className="text-xl font-black text-[#2B2D33]">{selectedLesson.title}</h2>
                       </div>
                       {selectedLesson.isCompleted && (
                         <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
