@@ -78,6 +78,7 @@ CREATE TABLE courses (
   title                text          NOT NULL,
   slug                 text          NOT NULL UNIQUE,
   description          text,
+  category             text,
   thumbnail_url        text,
   price                numeric(10,2) NOT NULL DEFAULT 0 CHECK (price >= 0),
   currency             text          NOT NULL DEFAULT 'BOB' CHECK (currency IN ('BOB', 'USD')),

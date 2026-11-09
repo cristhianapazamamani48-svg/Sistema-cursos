@@ -19,9 +19,16 @@ export const databaseProviders: Provider[] = [
         `postgresql://${configService.get<string>('DB_USER')}:${configService.get<string>('DB_PASSWORD')}@${configService.get<string>('DB_HOST')}:${configService.get<number>('DB_PORT')}/${configService.get<string>('DB_NAME')}`;
 
       types.setTypeParser(20, Number);
-      return new Pool({
+      const pool = new Pool({
         connectionString,
       });
+
+      // Asegurar columna category si ya existe la tabla courses
+      pool
+        .query('ALTER TABLE courses ADD COLUMN IF NOT EXISTS category text;')
+        .catch(() => {});
+
+      return pool;
     },
   },
   {

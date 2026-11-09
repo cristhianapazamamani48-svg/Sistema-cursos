@@ -12,6 +12,7 @@ export const courses = pgTable('courses', {
   title: text('title').notNull(),
   slug: text('slug').notNull().unique(),
   description: text('description'),
+  category: text('category'),
   thumbnailUrl: text('thumbnail_url'),
   price: numeric('price', { precision: 10, scale: 2 }).notNull().default('0'),
   currency: text('currency', { enum: currencyValues }).notNull().default('BOB'),

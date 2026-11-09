@@ -5,6 +5,7 @@ export const createCourseSchema = z.object({
   title: z.string().min(3, 'El título debe tener al menos 3 caracteres').trim(),
   slug: z.string().min(3, 'El slug debe tener al menos 3 caracteres').toLowerCase().trim(),
   description: z.string().optional(),
+  category: z.string().optional().or(z.literal('')),
   thumbnailUrl: z.string().url('URL inválida').optional().or(z.literal('')),
   price: z.coerce.number().min(0, 'El precio no puede ser negativo').default(0),
   currency: z.enum(currencyValues).default('BOB'),
