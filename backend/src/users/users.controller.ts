@@ -31,18 +31,18 @@ export class UsersController {
 
   @Get('me')
   async getMe(@Request() req: any) {
-    return this.usersService.getMe(req.user.userId);
+    return this.usersService.getMe(req.user.id);
   }
 
   @Patch('me/profile')
   @HttpCode(HttpStatus.OK)
   async updateProfile(@Request() req: any, @Body() dto: UpdateProfileDto) {
-    return this.usersService.updateProfile(req.user.userId, dto);
+    return this.usersService.updateProfile(req.user.id, dto);
   }
 
   @Patch('me/password')
   @HttpCode(HttpStatus.OK)
   async updatePassword(@Request() req: any, @Body() dto: UpdatePasswordDto) {
-    return this.usersService.updatePassword(req.user.userId, dto);
+    return this.usersService.updatePassword(req.user.id, dto);
   }
 }
