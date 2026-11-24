@@ -38,6 +38,7 @@ import UnitClassroomView from './UnitClassroomView';
 import StudentGradesView from './StudentGradesView';
 import StudentCertificatesView from './StudentCertificatesView';
 import UserProfileView from './UserProfileView';
+import DashboardHomeView from './DashboardHomeView';
 import { api, setCsrfToken as setGlobalCsrfToken, setOnUnauthorized } from './api';
 
 interface User {
@@ -246,15 +247,8 @@ export default function App() {
       setActiveTab('catalog');
       return;
     }
-    const role = user.role;
-    if (role === 'admin' || role === 'superadmin') {
-      setActiveTab('admin');
-      setAdminSubTab('summary');
-    } else if (role === 'docente' || role === 'teacher') {
-      setActiveTab('teacher-courses');
-    } else {
-      // Estudiante
-      setActiveTab('my-courses');
+    setActiveTab('home');
+    if (user.role === 'estudiante' || user.role === 'student') {
       loadMyCourses();
       loadMyOrders();
     }
@@ -271,17 +265,17 @@ export default function App() {
 
     const role = currentUser.role;
     if (role === 'admin' || role === 'superadmin') {
-      if (activeTab !== 'admin' && activeTab !== 'profile') {
-        setActiveTab('admin');
-        setAdminSubTab('summary');
+      if (activeTab !== 'admin' && activeTab !== 'profile' && activeTab !== 'home') {
+        setActiveTab('home');
       }
     } else if (role === 'docente' || role === 'teacher') {
-      if (activeTab !== 'teacher-courses' && activeTab !== 'create-course' && activeTab !== 'profile') {
-        setActiveTab('teacher-courses');
+      if (activeTab !== 'teacher-courses' && activeTab !== 'create-course' && activeTab !== 'profile' && activeTab !== 'home') {
+        setActiveTab('home');
       }
     } else {
       // Estudiante
       const allowedStudentTabs: AppTab[] = [
+        'home',
         'my-courses',
         'my-certificates',
         'my-orders',
@@ -291,7 +285,7 @@ export default function App() {
         'profile',
       ];
       if (!allowedStudentTabs.includes(activeTab)) {
-        setActiveTab('my-courses');
+        setActiveTab('home');
       }
     }
   }, [currentUser, activeTab]);
@@ -1377,6 +1371,23 @@ export default function App() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* VISTA: PANEL DE INICIO POR ROL (ESTUDIANTE / DOCENTE / ADMIN) */}
+        {activeTab === 'home' && currentUser && (
+          <DashboardHomeView
+            currentUser={currentUser}
+            onNavigate={(tab, subTab) => {
+              if (tab === 'admin' && subTab) {
+                setAdminSubTab(subTab as any);
+              }
+              setActiveTab(tab as any);
+            }}
+            onEnterCourse={(slug) => {
+              enterClassroom(slug);
+            }}
+            showToast={showToast}
+          />
         )}
 
         {/* VISTA: MIS CURSOS (ESTUDIANTE) */}

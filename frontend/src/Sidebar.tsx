@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 
 export type AppTab =
+  | 'home'
   | 'catalog'
   | 'course-detail'
   | 'my-courses'
@@ -108,8 +109,18 @@ export default function Sidebar({
       },
     ];
   } else if (isEstudiante) {
-    // Estudiante: Catálogo, Mis cursos, Mis pagos (+ Aula si hay activa)
+    // Estudiante: Inicio, Catálogo, Mis cursos, Mis certificados, Mis pagos (+ Aula si hay activa)
     navItems = [
+      {
+        id: 'home',
+        label: 'Inicio',
+        icon: LayoutDashboard,
+        isActive: activeTab === 'home',
+        onClick: () => {
+          onNavigate('home');
+          onCloseMobile();
+        },
+      },
       {
         id: 'catalog',
         label: 'Catálogo',
@@ -165,8 +176,18 @@ export default function Sidebar({
       });
     }
   } else if (isDocente) {
-    // Docente: Mis cursos (los que creó) y Crear curso, sin Catálogo comprador
+    // Docente: Inicio, Mis cursos y Crear curso
     navItems = [
+      {
+        id: 'home',
+        label: 'Inicio',
+        icon: LayoutDashboard,
+        isActive: activeTab === 'home',
+        onClick: () => {
+          onNavigate('home');
+          onCloseMobile();
+        },
+      },
       {
         id: 'teacher-courses',
         label: 'Mis Cursos',
@@ -189,12 +210,22 @@ export default function Sidebar({
       },
     ];
   } else if (isAdmin) {
-    // Admin y superadmin: solo Resumen, Pagos, Videos, Usuarios y Cursos, sin Mis cursos ni Crear curso
+    // Admin y superadmin: Inicio, Resumen, Pagos, Videos, Usuarios y Cursos
     navItems = [
+      {
+        id: 'home',
+        label: 'Inicio',
+        icon: LayoutDashboard,
+        isActive: activeTab === 'home',
+        onClick: () => {
+          onNavigate('home');
+          onCloseMobile();
+        },
+      },
       {
         id: 'admin-summary',
         label: 'Resumen',
-        icon: LayoutDashboard,
+        icon: Layers,
         isActive: activeTab === 'admin' && (adminTab === 'summary' || !adminTab),
         onClick: () => {
           onNavigate('admin', 'summary');

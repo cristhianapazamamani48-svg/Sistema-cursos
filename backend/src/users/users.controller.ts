@@ -34,6 +34,11 @@ export class UsersController {
     return this.usersService.getMe(req.user.id);
   }
 
+  @Get('dashboard')
+  async getDashboard(@Request() req: any) {
+    return this.usersService.getDashboardSummary(req.user);
+  }
+
   @Patch('me/profile')
   @HttpCode(HttpStatus.OK)
   async updateProfile(@Request() req: any, @Body() dto: UpdateProfileDto) {
