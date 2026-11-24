@@ -13,6 +13,7 @@ import {
   GraduationCap,
   Award,
   X,
+  UserCircle,
 } from 'lucide-react';
 
 export type AppTab =
@@ -24,7 +25,8 @@ export type AppTab =
   | 'teacher-courses'
   | 'create-course'
   | 'classroom'
-  | 'admin';
+  | 'admin'
+  | 'profile';
 
 export type AdminSubTab = 'summary' | 'orders' | 'videos' | 'users' | 'courses';
 
@@ -319,6 +321,28 @@ export default function Sidebar({
             >
               <Award className="w-4 h-4 text-amber-500 shrink-0" />
               <span className="truncate">Validar Certificado</span>
+            </button>
+          </div>
+        )}
+
+        {/* Mi Perfil — visible para todos los roles autenticados */}
+        {currentUser && (
+          <div className="pt-2 border-t border-[#363940]/50 mt-2">
+            <button
+              onClick={() => {
+                onNavigate('profile');
+                onCloseMobile();
+              }}
+              className={`w-full flex items-center gap-3.5 px-3.5 py-2.5 rounded-2xl text-xs font-bold transition cursor-pointer text-left ${
+                activeTab === 'profile'
+                  ? 'bg-[#F2412C] text-white shadow-md shadow-[#F2412C]/20'
+                  : 'text-[#E4E6EA]/80 hover:text-white hover:bg-[#363940]'
+              }`}
+            >
+              <UserCircle
+                className={`w-4 h-4 shrink-0 ${activeTab === 'profile' ? 'text-white stroke-[2.5]' : 'text-[#9EA3AC]'}`}
+              />
+              <span className="truncate">Mi Perfil</span>
             </button>
           </div>
         )}

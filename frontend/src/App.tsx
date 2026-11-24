@@ -37,6 +37,7 @@ import VerifyCertificateModal from './VerifyCertificateModal';
 import UnitClassroomView from './UnitClassroomView';
 import StudentGradesView from './StudentGradesView';
 import StudentCertificatesView from './StudentCertificatesView';
+import UserProfileView from './UserProfileView';
 import { api, setCsrfToken as setGlobalCsrfToken, setOnUnauthorized } from './api';
 
 interface User {
@@ -270,12 +271,12 @@ export default function App() {
 
     const role = currentUser.role;
     if (role === 'admin' || role === 'superadmin') {
-      if (activeTab !== 'admin') {
+      if (activeTab !== 'admin' && activeTab !== 'profile') {
         setActiveTab('admin');
         setAdminSubTab('summary');
       }
     } else if (role === 'docente' || role === 'teacher') {
-      if (activeTab !== 'teacher-courses' && activeTab !== 'create-course') {
+      if (activeTab !== 'teacher-courses' && activeTab !== 'create-course' && activeTab !== 'profile') {
         setActiveTab('teacher-courses');
       }
     } else {
@@ -287,6 +288,7 @@ export default function App() {
         'catalog',
         'course-detail',
         'classroom',
+        'profile',
       ];
       if (!allowedStudentTabs.includes(activeTab)) {
         setActiveTab('my-courses');
@@ -1402,6 +1404,14 @@ export default function App() {
             }}
             onNavigateToCourses={() => setActiveTab('my-courses')}
             showToast={showToast}
+          />
+        )}
+
+        {/* VISTA: MI PERFIL (TODOS LOS ROLES AUTENTICADOS) */}
+        {activeTab === 'profile' && currentUser && (
+          <UserProfileView
+            showToast={showToast}
+            onProfileUpdated={checkAuth}
           />
         )}
 

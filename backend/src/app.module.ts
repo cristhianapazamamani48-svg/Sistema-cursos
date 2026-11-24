@@ -13,6 +13,7 @@ import { OrdersModule } from './orders/orders.module';
 import { AdminModule } from './admin/admin.module';
 import { CertificatesModule } from './certificates/certificates.module';
 import { UnitsModule } from './units/units.module';
+import { UsersModule } from './users/users.module';
 import { CsrfMiddleware } from './common/middleware/csrf.middleware';
 import { AppController } from './app.controller';
 
@@ -45,6 +46,7 @@ const staticModule = frontendExists
     AdminModule,
     CertificatesModule,
     UnitsModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [],
