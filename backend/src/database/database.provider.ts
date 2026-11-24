@@ -28,6 +28,23 @@ export const databaseProviders: Provider[] = [
         .query('ALTER TABLE courses ADD COLUMN IF NOT EXISTS category text;')
         .catch(() => {});
 
+      // Asegurar duration_seconds nullable y check para videos pendientes
+      pool
+        .query(`
+          ALTER TABLE videos ALTER COLUMN duration_seconds DROP NOT NULL;
+          ALTER TABLE videos DROP CONSTRAINT IF EXISTS videos_duration_seconds_check;
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_constraint WHERE conname = 'videos_approved_duration_check'
+            ) THEN
+              ALTER TABLE videos ADD CONSTRAINT videos_approved_duration_check
+                CHECK (status <> 'approved' OR duration_seconds > 0);
+            END IF;
+          END $$;
+        `)
+        .catch(() => {});
+
       return pool;
     },
   },

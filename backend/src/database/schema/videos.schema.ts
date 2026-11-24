@@ -12,7 +12,7 @@ export const videos = pgTable('videos', {
   title: text('title').notNull(),
   provider: text('provider', { enum: videoProviderValues }).notNull(),
   providerRef: text('provider_ref').notNull(),
-  durationSeconds: integer('duration_seconds').notNull(),
+  durationSeconds: integer('duration_seconds'),
   uploadedBy: bigint('uploaded_by', { mode: 'number' })
     .notNull()
     .references(() => users.id),

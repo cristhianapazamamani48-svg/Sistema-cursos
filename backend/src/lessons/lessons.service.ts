@@ -35,7 +35,7 @@ export class LessonsService {
         title: dto.title,
         provider: dto.provider,
         providerRef: dto.providerRef,
-        durationSeconds: 0, // El docente no fija la duración; se define al aprobar
+        durationSeconds: null, // El docente no fija la duración; se define al aprobar
         uploadedBy: uploaderId,
         status: 'pending',
       })

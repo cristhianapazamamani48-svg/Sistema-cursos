@@ -65,7 +65,7 @@ interface VideoItem {
   title: string;
   provider: 'youtube' | 'cloudflare' | 'vimeo';
   providerRef: string;
-  durationSeconds: number;
+  durationSeconds: number | null;
   uploadedBy: number;
   status: 'pending' | 'approved' | 'rejected';
   rejectionReason?: string | null;
@@ -613,7 +613,11 @@ export default function AdminPanel({ onClose, initialTab }: AdminPanelProps) {
                           {vid.providerRef} <ExternalLink className="w-3 h-3" />
                         </a>
                       </td>
-                      <td className="py-4 px-3">{Math.floor(vid.durationSeconds / 60)}m {vid.durationSeconds % 60}s</td>
+                      <td className="py-4 px-3">
+                        {vid.durationSeconds
+                          ? `${Math.floor(vid.durationSeconds / 60)}m ${vid.durationSeconds % 60}s`
+                          : <span className="text-[#9EA3AC] italic text-[11px]">Por definir</span>}
+                      </td>
                       <td className="py-4 px-3">Docente #{vid.uploadedBy}</td>
                       <td className="py-4 px-3">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-bold text-[11px] border ${

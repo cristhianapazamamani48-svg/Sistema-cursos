@@ -37,7 +37,7 @@ export interface LessonItem {
     id: number;
     provider: string;
     providerRef: string;
-    durationSeconds: number;
+    durationSeconds: number | null;
     status: 'pending' | 'approved' | 'rejected';
     title: string;
     rejectionReason?: string | null;
@@ -58,7 +58,7 @@ export interface VideoOption {
   title: string;
   provider: string;
   providerRef: string;
-  durationSeconds: number;
+  durationSeconds: number | null;
   status: 'pending' | 'approved' | 'rejected';
   rejectionReason?: string | null;
 }
@@ -119,7 +119,7 @@ export default function CurriculumBuilder({
   const [currentVideoData, setCurrentVideoData] = useState<{
     id: number;
     providerRef: string;
-    durationSeconds: number;
+    durationSeconds: number | null;
     status: 'pending' | 'approved' | 'rejected';
     title: string;
     rejectionReason?: string | null;
@@ -805,7 +805,7 @@ export default function CurriculumBuilder({
                                       >
                                         <Play className="w-2.5 h-2.5 text-[#F2412C]" />
                                         <span>
-                                          {les.video.status === 'approved'
+                                          {les.video.status === 'approved' && les.video.durationSeconds
                                             ? `${Math.floor(les.video.durationSeconds / 60)}:${(les.video.durationSeconds % 60).toString().padStart(2, '0')}m`
                                             : les.video.status === 'rejected'
                                             ? 'Rechazado'

@@ -131,7 +131,7 @@ CREATE TABLE videos (
   title            text        NOT NULL,
   provider         text        NOT NULL CHECK (provider IN ('youtube', 'cloudflare', 'vimeo')),
   provider_ref     text        NOT NULL,
-  duration_seconds integer     NOT NULL CHECK (duration_seconds > 0),
+  duration_seconds integer,
   uploaded_by      bigint      NOT NULL REFERENCES users(id),
   status           text        NOT NULL DEFAULT 'pending'
                    CHECK (status IN ('pending', 'approved', 'rejected')),
@@ -144,7 +144,9 @@ CREATE TABLE videos (
   CONSTRAINT rejected_needs_reason
     CHECK (status <> 'rejected' OR rejection_reason IS NOT NULL),
   CONSTRAINT reviewed_pair
-    CHECK ((reviewed_by IS NULL) = (reviewed_at IS NULL))
+    CHECK ((reviewed_by IS NULL) = (reviewed_at IS NULL)),
+  CONSTRAINT videos_approved_duration_check
+    CHECK (status <> 'approved' OR duration_seconds > 0)
 );
 CREATE UNIQUE INDEX videos_provider_ref_unique
   ON videos (provider, provider_ref) WHERE deleted_at IS NULL;
