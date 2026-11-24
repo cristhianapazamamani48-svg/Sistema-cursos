@@ -40,6 +40,7 @@ import StudentCertificatesView from './StudentCertificatesView';
 import UserProfileView from './UserProfileView';
 import DashboardHomeView from './DashboardHomeView';
 import CourseCatalogView from './CourseCatalogView';
+import ConfettiCelebration from './ConfettiCelebration';
 import { api, setCsrfToken as setGlobalCsrfToken, setOnUnauthorized } from './api';
 
 interface User {
@@ -1393,10 +1394,10 @@ export default function App() {
 
                   {/* Barra de progreso total del curso */}
                   <div className="space-y-1.5">
-                    <div className="w-full bg-[#E4E6EA] h-3 rounded-full overflow-hidden">
+                    <div className="w-full bg-[#E4E6EA] h-3 rounded-full overflow-hidden shadow-inner">
                       <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          isCourseCompleted ? 'bg-emerald-500' : 'bg-[#F2412C]'
+                        className={`h-full rounded-full transition-all duration-700 ease-out ${
+                          isCourseCompleted ? 'bg-gradient-to-r from-emerald-500 to-teal-500' : 'bg-[#F2412C]'
                         }`}
                         style={{ width: `${Math.max(classroomData.overallProgress.percentage, 2)}%` }}
                       />
@@ -1411,39 +1412,42 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Insignia destacada: Curso Completado */}
+                  {/* Insignia destacada y Confeti: Curso Completado */}
                   {isCourseCompleted && (
-                    <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between gap-4 text-emerald-950 shadow-xs animate-fade-in">
-                      <div className="flex items-center gap-3.5">
-                        <div className="w-11 h-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-sm shrink-0">
-                          <Award className="w-6 h-6" />
+                    <div className="relative overflow-hidden bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-100 border border-emerald-300 rounded-3xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 text-emerald-950 shadow-md animate-fade-in">
+                      {/* Confeti CSS puro */}
+                      <ConfettiCelebration />
+
+                      <div className="flex items-center gap-4 relative z-10">
+                        <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shrink-0 animate-bounce">
+                          <Award className="w-7 h-7" />
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300">
-                              Reconocimiento Oficial
+                            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-200/80 px-2 py-0.5 rounded border border-emerald-300">
+                              ¡Felicitaciones! 🎉
                             </span>
-                            <h4 className="text-sm font-black text-emerald-950">Insignia: Curso Completado</h4>
+                            <h4 className="text-base font-black text-emerald-950">Insignia: Curso Completado</h4>
                           </div>
-                          <p className="text-xs text-emerald-700 mt-0.5">
-                            ¡Felicitaciones! Has completado todas las lecciones y horas lectivas requeridas.
+                          <p className="text-xs text-emerald-800 mt-1">
+                            ¡Excelente trabajo! Has completado con éxito todas las lecciones y requisitos del curso.
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-2 shrink-0 relative z-10 w-full sm:w-auto justify-end">
                         <button
                           type="button"
                           onClick={() => {
                             setSelectedCertificateEnrollmentId(classroomData.enrollment.id);
                             setIsCertificateModalOpen(true);
                           }}
-                          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-black shadow-md shadow-amber-500/20 transition cursor-pointer"
+                          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-black shadow-lg shadow-amber-500/30 transition transform hover:-translate-y-0.5 cursor-pointer"
                         >
                           <Award className="w-4 h-4 text-white" />
                           <span>Obtener Mi Certificado</span>
                         </button>
-                        <span className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black shadow-xs shrink-0">
+                        <span className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-black shadow-xs shrink-0 animate-pop">
                           <CheckCircle2 className="w-4 h-4" />
                           Aprobado
                         </span>
@@ -1492,273 +1496,307 @@ export default function App() {
               />
             )}
 
-            {/* VISTA 2: TEMARIO Y REPRODUCTOR INTERACTIVO */}
+            {/* VISTA 2: REPRODUCTOR ARRIBA / PRINCIPAL Y BARRA LATERAL CON TEMARIO */}
             {classroomViewMode === 'content' && (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-              {/* Barra lateral de Temario, Progreso de Módulos y Candados */}
-              <div className="lg:col-span-4 space-y-3">
-                <div className="bg-white border border-[#D1D5DB] rounded-3xl p-5 space-y-4 shadow-xs">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold text-[#2B2D33] flex items-center gap-2">
-                      <Layers className="w-4 h-4 text-[#F2412C]" /> Contenido del Curso
-                    </h3>
-                    <span className="text-[11px] font-bold text-[#555861]">
-                      {classroomData.modules.length} módulos
-                    </span>
-                  </div>
+                {/* 1. Área del Reproductor y Contenido Central (Arriba en móvil / 8 cols en desktop) */}
+                <div className="lg:col-span-8 order-1 space-y-6">
+                  {selectedLesson ? (
+                    <div className="bg-white border border-[#D1D5DB] rounded-3xl p-6 space-y-6 shadow-xs">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <span className="text-xs text-[#F2412C] font-bold">Lección Actual</span>
+                          <h2 className="text-xl font-black text-[#2B2D33]">{selectedLesson.title}</h2>
+                        </div>
+                        {selectedLesson.isCompleted ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0 animate-pop">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 animate-pop" /> Lección Completada
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-xl bg-[#F8F9FA] text-[#2B2D33] border border-[#D1D5DB] shrink-0">
+                            <Clock className="w-3.5 h-3.5 text-[#F2412C]" />
+                            Avance: {selectedLesson.currentWatchPercentage}%
+                          </span>
+                        )}
+                      </div>
 
-                  <div className="space-y-3">
-                    {classroomData.modules.map((m, mIdx) => {
-                      const isExpanded = expandedModules.includes(m.id);
-                      const modTotal = m.lessons.length;
-                      const modCompleted = m.lessons.filter((l) => l.isCompleted).length;
-                      const modPercent = modTotal > 0 ? Math.round((modCompleted / modTotal) * 100) : 0;
-                      const isModFinished = modTotal > 0 && modCompleted === modTotal;
+                      {/* Barra de Progreso de la Lección Actual con animación fluida */}
+                      <div className="bg-[#F8F9FA] border border-[#D1D5DB] rounded-2xl p-4 space-y-2">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="font-bold text-[#2B2D33]">Progreso de Visualización de esta Lección</span>
+                          <span className="font-extrabold text-[#F2412C]">
+                            {selectedLesson.isCompleted ? '100%' : `${selectedLesson.currentWatchPercentage}%`}
+                          </span>
+                        </div>
+                        <div className="relative w-full bg-[#E4E6EA] h-2.5 rounded-full overflow-hidden shadow-inner">
+                          <div
+                            className={`h-full rounded-full transition-all duration-700 ease-out ${
+                              selectedLesson.isCompleted ? 'bg-emerald-500' : 'bg-[#F2412C]'
+                            }`}
+                            style={{
+                              width: `${Math.max(
+                                selectedLesson.isCompleted ? 100 : selectedLesson.currentWatchPercentage,
+                                3
+                              )}%`,
+                            }}
+                          />
+                        </div>
+                        <div className="flex justify-between text-[11px] text-[#555861]">
+                          <span>Mínimo requerido para aprobar: <strong>{classroomData.course.minWatchPercentage}%</strong></span>
+                          <span>{selectedLesson.isCompleted ? 'Aprobada ✓' : 'En reproducción'}</span>
+                        </div>
+                      </div>
 
-                      // Si el módulo está bloqueado, identificar el módulo anterior incompleto
-                      let blockingMessage = '';
-                      if (m.isLocked) {
-                        const priorIncompleteMod = classroomData.modules
-                          .slice(0, mIdx)
-                          .find((prev) => prev.lessons.some((l) => !l.isCompleted));
-                        if (priorIncompleteMod) {
-                          const pendingInPrior = priorIncompleteMod.lessons.filter((l) => !l.isCompleted).length;
-                          blockingMessage = `Completa las ${pendingInPrior} lección(es) pendiente(s) de "${priorIncompleteMod.title}" para desbloquear este módulo.`;
-                        } else {
-                          blockingMessage = 'Completa las lecciones del módulo anterior para desbloquear este contenido.';
+                      {/* Reproductor de Video de la Lección */}
+                      {selectedLesson.video?.providerRef ? (
+                        <YouTubeTracker
+                          videoId={selectedLesson.video.providerRef}
+                          lessonId={selectedLesson.id}
+                          minWatchPercentage={classroomData.course.minWatchPercentage}
+                          onProgressUpdate={(stats) => {
+                            if (stats.isCompleted) {
+                              showToast('success', '¡Felicitaciones! Has completado esta lección.');
+                              enterClassroom(classroomData.course.slug);
+                            }
+                          }}
+                        />
+                      ) : (
+                        <div className="aspect-video bg-[#2B2D33] rounded-2xl flex flex-col items-center justify-center text-[#E4E6EA] space-y-2">
+                          <FileText className="w-8 h-8 text-white" />
+                          <span className="text-xs">Esta lección no incluye video</span>
+                        </div>
+                      )}
+
+                      {/* Componentes Pedagógicos de la Unidad */}
+                      <div className="pt-4 border-t border-[#E4E6EA]">
+                        <UnitClassroomView
+                          lesson={selectedLesson}
+                          courseSlug={classroomData.course.slug}
+                          minWatchPercentage={classroomData.course.minWatchPercentage}
+                          onRefreshClassroom={() => enterClassroom(classroomData.course.slug)}
+                          showToast={showToast}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-white border border-[#D1D5DB] rounded-3xl p-12 text-center text-[#555861] shadow-xs">
+                      Selecciona una lección del temario para comenzar a estudiar.
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Barra lateral de Temario, Progreso de Módulos y Estados Claros (4 cols en desktop / orden 2 en móvil) */}
+                <div className="lg:col-span-4 order-2 space-y-3">
+                  <div className="bg-white border border-[#D1D5DB] rounded-3xl p-5 space-y-4 shadow-xs">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-bold text-[#2B2D33] flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-[#F2412C]" /> Temario del Curso
+                      </h3>
+                      <span className="text-[11px] font-bold text-[#555861]">
+                        {classroomData.modules.length} módulos
+                      </span>
+                    </div>
+
+                    <div className="space-y-3">
+                      {classroomData.modules.map((m, mIdx) => {
+                        const isExpanded = expandedModules.includes(m.id);
+                        const modTotal = m.lessons.length;
+                        const modCompleted = m.lessons.filter((l) => l.isCompleted).length;
+                        const modPercent = modTotal > 0 ? Math.round((modCompleted / modTotal) * 100) : 0;
+                        const isModFinished = modTotal > 0 && modCompleted === modTotal;
+
+                        // Si el módulo está bloqueado, identificar el módulo anterior incompleto
+                        let blockingMessage = '';
+                        if (m.isLocked) {
+                          const priorIncompleteMod = classroomData.modules
+                            .slice(0, mIdx)
+                            .find((prev) => prev.lessons.some((l) => !l.isCompleted));
+                          if (priorIncompleteMod) {
+                            const pendingInPrior = priorIncompleteMod.lessons.filter((l) => !l.isCompleted).length;
+                            blockingMessage = `Completa las ${pendingInPrior} lección(es) pendiente(s) de "${priorIncompleteMod.title}" para desbloquear este módulo.`;
+                          } else {
+                            blockingMessage = 'Completa las lecciones del módulo anterior para desbloquear este contenido.';
+                          }
                         }
-                      }
 
-                      return (
-                        <div
-                          key={m.id}
-                          className={`rounded-2xl border transition-all overflow-hidden ${
-                            m.isLocked
-                              ? 'bg-[#F4F5F7] border-[#D1D5DB]/80'
-                              : 'bg-[#F8F9FA] border-[#D1D5DB]'
-                          }`}
-                        >
-                          {/* Cabecera del Módulo con Barra de Progreso del Módulo */}
-                          <button
-                            onClick={() => !m.isLocked && toggleModule(m.id)}
-                            disabled={m.isLocked}
-                            className={`w-full text-left p-3.5 flex flex-col gap-2 transition ${
-                              m.isLocked ? 'cursor-not-allowed opacity-85' : 'cursor-pointer hover:bg-slate-100/60'
+                        return (
+                          <div
+                            key={m.id}
+                            className={`rounded-2xl border transition-all overflow-hidden ${
+                              m.isLocked
+                                ? 'bg-[#F4F5F7] border-[#D1D5DB]/80'
+                                : 'bg-[#F8F9FA] border-[#D1D5DB]'
                             }`}
                           >
-                            <div className="flex items-center justify-between gap-3 w-full">
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                {m.isLocked ? (
-                                  <Lock className="w-4 h-4 text-amber-600 shrink-0" />
-                                ) : isModFinished ? (
-                                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                                ) : (
-                                  <div className="w-2.5 h-2.5 rounded-full bg-[#F2412C] shrink-0" />
-                                )}
-                                <span className="text-xs font-bold text-[#2B2D33] line-clamp-1">
-                                  {m.title}
-                                </span>
-                              </div>
-
-                              <div className="flex items-center gap-2 shrink-0">
-                                {!m.isLocked && (
-                                  <span className="text-[10px] font-extrabold text-[#555861]">
-                                    {modCompleted}/{modTotal} ({modPercent}%)
+                            {/* Cabecera del Módulo con Barra de Progreso */}
+                            <button
+                              onClick={() => !m.isLocked && toggleModule(m.id)}
+                              disabled={m.isLocked}
+                              className={`w-full text-left p-3.5 flex flex-col gap-2 transition ${
+                                m.isLocked ? 'cursor-not-allowed opacity-85' : 'cursor-pointer hover:bg-slate-100/60'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-3 w-full">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  {m.isLocked ? (
+                                    <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+                                  ) : isModFinished ? (
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-600 animate-pop shrink-0" />
+                                  ) : (
+                                    <div className="w-2.5 h-2.5 rounded-full bg-[#F2412C] shrink-0" />
+                                  )}
+                                  <span className="text-xs font-bold text-[#2B2D33] line-clamp-1">
+                                    {m.title}
                                   </span>
-                                )}
-                                {!m.isLocked && (
-                                  <ChevronDown
-                                    className={`w-4 h-4 text-[#555861] transition-transform ${
-                                      isExpanded ? 'rotate-180' : ''
-                                    }`}
-                                  />
-                                )}
-                              </div>
-                            </div>
+                                </div>
 
-                            {/* Barra de progreso por módulo */}
-                            {!m.isLocked && (
-                              <div className="w-full bg-[#E4E6EA] h-1.5 rounded-full overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full transition-all duration-300 ${
-                                    isModFinished ? 'bg-emerald-500' : 'bg-[#F2412C]'
-                                  }`}
-                                  style={{ width: `${Math.max(modPercent, 3)}%` }}
-                                />
+                                <div className="flex items-center gap-2 shrink-0">
+                                  {!m.isLocked && (
+                                    <span className="text-[10px] font-extrabold text-[#555861]">
+                                      {modCompleted}/{modTotal} ({modPercent}%)
+                                    </span>
+                                  )}
+                                  {!m.isLocked && (
+                                    <ChevronDown
+                                      className={`w-4 h-4 text-[#555861] transition-transform ${
+                                        isExpanded ? 'rotate-180' : ''
+                                      }`}
+                                    />
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Barra de progreso por módulo con animación */}
+                              {!m.isLocked && (
+                                <div className="w-full bg-[#E4E6EA] h-1.5 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all duration-500 ease-out ${
+                                      isModFinished ? 'bg-emerald-500' : 'bg-[#F2412C]'
+                                    }`}
+                                    style={{ width: `${Math.max(modPercent, 3)}%` }}
+                                  />
+                                </div>
+                              )}
+                            </button>
+
+                            {/* Mensaje de qué falta si el módulo está bloqueado */}
+                            {m.isLocked && (
+                              <div className="px-3.5 pb-3.5 pt-1 text-[11px] leading-relaxed text-amber-900 bg-amber-50/90 border-t border-amber-200/80 flex items-start gap-2">
+                                <Lock className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
+                                <span>{blockingMessage}</span>
                               </div>
                             )}
-                          </button>
 
-                          {/* Mensaje de qué falta si el módulo está bloqueado */}
-                          {m.isLocked && (
-                            <div className="px-3.5 pb-3.5 pt-1 text-[11px] leading-relaxed text-amber-900 bg-amber-50/90 border-t border-amber-200/80 flex items-start gap-2">
-                              <Lock className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
-                              <span>{blockingMessage}</span>
-                            </div>
-                          )}
+                            {/* Mensaje de felicitación al terminar el módulo */}
+                            {isExpanded && !m.isLocked && isModFinished && (
+                              <div className="mx-3 my-2 p-2.5 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/90 flex items-center gap-2.5 text-xs text-emerald-900 shadow-xs animate-fade-in">
+                                <span className="text-base animate-bounce shrink-0">🎉</span>
+                                <div className="min-w-0">
+                                  <span className="font-extrabold text-emerald-950 block">¡Excelente trabajo!</span>
+                                  <span className="text-[11px] text-emerald-800">Has completado todas las lecciones de este módulo.</span>
+                                </div>
+                              </div>
+                            )}
 
-                          {/* Lecciones del Módulo con Barra de Progreso por Lección */}
-                          {isExpanded && !m.isLocked && (
-                            <div className="px-3 pb-3 space-y-1.5 border-t border-[#D1D5DB] pt-2">
-                              {m.lessons.map((les) => {
-                                const isCurrent = selectedLesson?.id === les.id;
-                                const watchPct = les.currentWatchPercentage || 0;
+                            {/* Lecciones del Módulo con Estados Claros (Completada, En curso, Bloqueada) */}
+                            {isExpanded && !m.isLocked && (
+                              <div className="px-3 pb-3 space-y-1.5 border-t border-[#D1D5DB] pt-2">
+                                {m.lessons.map((les) => {
+                                  const isCurrent = selectedLesson?.id === les.id;
+                                  const watchPct = les.currentWatchPercentage || 0;
 
-                                return (
-                                  <button
-                                    key={les.id}
-                                    onClick={() => !les.isLocked && setSelectedLesson(les)}
-                                    disabled={les.isLocked}
-                                    className={`w-full text-left p-2.5 rounded-xl text-xs flex flex-col gap-1.5 transition cursor-pointer ${
-                                      isCurrent
-                                        ? 'bg-[#F2412C] text-white font-bold shadow-md shadow-[#F2412C]/20'
-                                        : les.isCompleted
-                                        ? 'bg-emerald-50 hover:bg-emerald-100/70 text-[#2B2D33] border border-emerald-200/60'
-                                        : 'bg-white hover:bg-slate-50 text-[#2B2D33] border border-[#D1D5DB]'
-                                    }`}
-                                  >
-                                    <div className="flex items-center justify-between gap-2 w-full">
-                                      <div className="flex items-center gap-2 line-clamp-1 min-w-0">
-                                        {les.isCompleted ? (
-                                          <CheckCircle2
-                                            className={`w-4 h-4 shrink-0 ${
-                                              isCurrent ? 'text-white' : 'text-emerald-600'
-                                            }`}
-                                          />
-                                        ) : les.isLocked ? (
-                                          <Lock className="w-3.5 h-3.5 text-[#9EA3AC] shrink-0" />
-                                        ) : (
-                                          <Play
-                                            className={`w-3.5 h-3.5 shrink-0 ${
-                                              isCurrent ? 'text-white' : 'text-[#F2412C]'
-                                            }`}
-                                          />
-                                        )}
-                                        <span className="truncate">{les.title}</span>
+                                  return (
+                                    <button
+                                      key={les.id}
+                                      onClick={() => !les.isLocked && setSelectedLesson(les)}
+                                      disabled={les.isLocked}
+                                      className={`w-full text-left p-2.5 rounded-xl text-xs flex flex-col gap-1.5 transition-all duration-300 cursor-pointer ${
+                                        isCurrent
+                                          ? 'bg-[#F2412C] text-white font-bold shadow-md shadow-[#F2412C]/20 ring-2 ring-[#F2412C]/30'
+                                          : les.isCompleted
+                                          ? 'bg-emerald-50/80 hover:bg-emerald-100/70 text-[#2B2D33] border border-emerald-200/80'
+                                          : les.isLocked
+                                          ? 'bg-[#F4F5F7] opacity-60 text-[#9EA3AC] border border-[#E4E6EA] cursor-not-allowed'
+                                          : 'bg-white hover:bg-slate-50 text-[#2B2D33] border border-[#D1D5DB]'
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between gap-2 w-full">
+                                        <div className="flex items-center gap-2 line-clamp-1 min-w-0">
+                                          {les.isCompleted ? (
+                                            <CheckCircle2
+                                              className={`w-4 h-4 shrink-0 text-emerald-600 animate-pop ${
+                                                isCurrent ? 'text-white' : 'text-emerald-600'
+                                              }`}
+                                            />
+                                          ) : les.isLocked ? (
+                                            <Lock className="w-3.5 h-3.5 text-[#9EA3AC] shrink-0" />
+                                          ) : (
+                                            <Play
+                                              className={`w-3.5 h-3.5 shrink-0 ${
+                                                isCurrent ? 'text-white animate-pulse' : 'text-[#F2412C]'
+                                              }`}
+                                            />
+                                          )}
+                                          <span className={`truncate ${les.isLocked ? 'text-[#9EA3AC]' : ''}`}>
+                                            {les.title}
+                                          </span>
+                                        </div>
+
+                                        {/* Estados Claros con Badges: Completada, En curso, Bloqueada */}
+                                        <div className="shrink-0 flex items-center">
+                                          {les.isCompleted ? (
+                                            <span
+                                              className={`text-[10px] font-black px-2 py-0.5 rounded-full transition-all ${
+                                                isCurrent
+                                                  ? 'bg-white/20 text-white'
+                                                  : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                              }`}
+                                            >
+                                              Completada ✓
+                                            </span>
+                                          ) : les.isLocked ? (
+                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                                              Bloqueada
+                                            </span>
+                                          ) : isCurrent ? (
+                                            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-white/25 text-white">
+                                              En curso ({watchPct}%)
+                                            </span>
+                                          ) : watchPct > 0 ? (
+                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                                              {watchPct}% visto
+                                            </span>
+                                          ) : (
+                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-[#555861]">
+                                              Por iniciar
+                                            </span>
+                                          )}
+                                        </div>
                                       </div>
 
-                                      <span
-                                        className={`text-[10px] font-black shrink-0 px-1.5 py-0.5 rounded ${
-                                          isCurrent
-                                            ? 'bg-white/20 text-white'
-                                            : les.isCompleted
-                                            ? 'bg-emerald-100 text-emerald-800'
-                                            : 'bg-slate-100 text-[#555861]'
-                                        }`}
-                                      >
-                                        {les.isCompleted ? '100%' : `${watchPct}%`}
-                                      </span>
-                                    </div>
-
-                                    {/* Barra de progreso por lección */}
-                                    {!les.isCompleted && !les.isLocked && watchPct > 0 && (
-                                      <div className="w-full bg-[#E4E6EA] h-1 rounded-full overflow-hidden">
-                                        <div
-                                          className={`h-full rounded-full ${
-                                            isCurrent ? 'bg-white' : 'bg-[#F2412C]'
-                                          }`}
-                                          style={{ width: `${watchPct}%` }}
-                                        />
-                                      </div>
-                                    )}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                                      {/* Barra de progreso por lección con animación fluida */}
+                                      {!les.isCompleted && !les.isLocked && watchPct > 0 && (
+                                        <div className="w-full bg-[#E4E6EA] h-1.5 rounded-full overflow-hidden">
+                                          <div
+                                            className={`h-full rounded-full transition-all duration-500 ease-out ${
+                                              isCurrent ? 'bg-white' : 'bg-[#F2412C]'
+                                            }`}
+                                            style={{ width: `${watchPct}%` }}
+                                          />
+                                        </div>
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </div>
-
-              {/* Área del Reproductor y Contenido Central */}
-              <div className="lg:col-span-8 space-y-6">
-                {selectedLesson ? (
-                  <div className="bg-white border border-[#D1D5DB] rounded-3xl p-6 space-y-6 shadow-xs">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div>
-                        <span className="text-xs text-[#F2412C] font-bold">Lección Actual</span>
-                        <h2 className="text-xl font-black text-[#2B2D33]">{selectedLesson.title}</h2>
-                      </div>
-                      {selectedLesson.isCompleted ? (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Lección Completada
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-xl bg-[#F8F9FA] text-[#2B2D33] border border-[#D1D5DB] shrink-0">
-                          <Clock className="w-3.5 h-3.5 text-[#F2412C]" />
-                          Avance: {selectedLesson.currentWatchPercentage}%
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Barra de Progreso de la Lección Actual */}
-                    <div className="bg-[#F8F9FA] border border-[#D1D5DB] rounded-2xl p-4 space-y-2">
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="font-bold text-[#2B2D33]">Progreso de Visualización de esta Lección</span>
-                        <span className="font-extrabold text-[#F2412C]">
-                          {selectedLesson.isCompleted ? '100%' : `${selectedLesson.currentWatchPercentage}%`}
-                        </span>
-                      </div>
-                      <div className="relative w-full bg-[#E4E6EA] h-2.5 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-300 ${
-                            selectedLesson.isCompleted ? 'bg-emerald-500' : 'bg-[#F2412C]'
-                          }`}
-                          style={{
-                            width: `${Math.max(
-                              selectedLesson.isCompleted ? 100 : selectedLesson.currentWatchPercentage,
-                              3
-                            )}%`,
-                          }}
-                        />
-                      </div>
-                      <div className="flex justify-between text-[11px] text-[#555861]">
-                        <span>Mínimo requerido para aprobar: <strong>{classroomData.course.minWatchPercentage}%</strong></span>
-                        <span>{selectedLesson.isCompleted ? 'Aprobada' : 'En reproducción'}</span>
-                      </div>
-                    </div>
-
-                    {/* Reproductor de Video de la Lección (en la parte superior) */}
-                    {selectedLesson.video?.providerRef ? (
-                      <YouTubeTracker
-                        videoId={selectedLesson.video.providerRef}
-                        lessonId={selectedLesson.id}
-                        minWatchPercentage={classroomData.course.minWatchPercentage}
-                        onProgressUpdate={(stats) => {
-                          if (stats.isCompleted) {
-                            showToast('success', '¡Felicitaciones! Has completado esta lección.');
-                            enterClassroom(classroomData.course.slug);
-                          }
-                        }}
-                      />
-                    ) : (
-                      <div className="aspect-video bg-[#2B2D33] rounded-2xl flex flex-col items-center justify-center text-[#E4E6EA] space-y-2">
-                        <FileText className="w-8 h-8 text-white" />
-                        <span className="text-xs">Esta lección no incluye video</span>
-                      </div>
-                    )}
-
-                    {/* Componentes Pedagógicos de la Unidad (al final / en la parte inferior del video) */}
-                    <div className="pt-4 border-t border-[#E4E6EA]">
-                      <UnitClassroomView
-                        lesson={selectedLesson}
-                        courseSlug={classroomData.course.slug}
-                        minWatchPercentage={classroomData.course.minWatchPercentage}
-                        onRefreshClassroom={() => enterClassroom(classroomData.course.slug)}
-                        showToast={showToast}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-white border border-[#D1D5DB] rounded-3xl p-12 text-center text-[#555861] shadow-xs">
-                    Selecciona una lección del temario para comenzar a estudiar.
-                  </div>
-                )}
-              </div>
-            </div>
             )}
           </div>
         )}

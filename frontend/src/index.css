@@ -30,4 +30,34 @@
     from { opacity: 0; transform: scale(0.9) translateY(8px); }
     to   { opacity: 1; transform: scale(1) translateY(0); }
   }
+
+  @keyframes confettiFall {
+    0% {
+      opacity: 1;
+      transform: translateY(-20px) rotate(0deg) scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(650px) rotate(720deg) scale(0.5);
+    }
+  }
+
+  .confetti-piece {
+    position: absolute;
+    top: 0;
+    width: 10px;
+    height: 14px;
+    border-radius: 3px;
+    animation: confettiFall 3.8s linear infinite;
+  }
+
+  @keyframes popScale {
+    0% { transform: scale(0.6); }
+    50% { transform: scale(1.35); }
+    100% { transform: scale(1); }
+  }
+
+  .animate-pop {
+    animation: popScale 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+  }
 }
