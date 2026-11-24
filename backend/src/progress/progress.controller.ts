@@ -39,4 +39,12 @@ export class ProgressController {
 
     return this.progressService.handleHeartbeat(parseResult.data, user.id);
   }
+
+  @Post('lessons/:lessonId/complete')
+  async completeLesson(
+    @Param('lessonId', ParseIntPipe) lessonId: number,
+    @CurrentUser() user: User,
+  ) {
+    return this.progressService.completeLesson(user.id, lessonId);
+  }
 }

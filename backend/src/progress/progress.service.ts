@@ -305,4 +305,63 @@ export class ProgressService {
     const res = await this.pool.query(queryC, [enrollmentId, moduleId]);
     return res.rows[0]?.pending_count ?? 0;
   }
+
+  /**
+   * Marca una lección como completada por el estudiante y evalúa si finalizó el curso entero
+   */
+  async completeLesson(userId: number, lessonId: number) {
+    const p = await this.getOrCreateProgress(userId, lessonId);
+    const progressId = p.id;
+    const enrollmentId = p.enrollmentId;
+
+    // Marcar como completada
+    await this.pool.query(
+      `UPDATE lesson_progress
+          SET is_completed = true, completed_at = COALESCE(completed_at, now())
+        WHERE id = $1;`,
+      [progressId],
+    );
+
+    // Consulta F: ¿Completó todo el curso?
+    let courseCompleted = false;
+    const queryF = `
+      SELECT
+        EXISTS (
+          SELECT 1
+            FROM enrollments e
+            JOIN modules m ON m.course_id = e.course_id AND m.deleted_at IS NULL
+            JOIN lessons l ON l.module_id = m.id
+                          AND l.status = 'published' AND l.deleted_at IS NULL
+           WHERE e.id = $1
+        )
+        AND NOT EXISTS (
+          SELECT 1
+            FROM enrollments e
+            JOIN modules m ON m.course_id = e.course_id AND m.deleted_at IS NULL
+            JOIN lessons l ON l.module_id = m.id
+                          AND l.status = 'published' AND l.deleted_at IS NULL
+             LEFT JOIN lesson_progress lp
+                    ON lp.lesson_id = l.id AND lp.enrollment_id = e.id
+           WHERE e.id = $1
+             AND COALESCE(lp.is_completed, false) = false
+        ) AS course_completed;
+    `;
+    const resF = await this.pool.query(queryF, [enrollmentId]);
+    if (resF.rows[0]?.course_completed) {
+      await this.pool.query(
+        `UPDATE enrollments
+            SET status = 'completed', completed_at = COALESCE(completed_at, now())
+          WHERE id = $1;`,
+        [enrollmentId],
+      );
+      courseCompleted = true;
+    }
+
+    return {
+      success: true,
+      lessonId,
+      isCompleted: true,
+      courseCompleted,
+    };
+  }
 }

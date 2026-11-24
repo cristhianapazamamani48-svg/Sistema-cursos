@@ -126,9 +126,36 @@ type PedagogicalTab = 'estudio' | 'complementario' | 'actividad' | 'foro' | 'eva
 export default function UnitClassroomView({
   lesson,
   courseSlug,
+  onRefreshClassroom,
   showToast,
 }: UnitClassroomViewProps) {
   const [activeTab, setActiveTab] = useState<PedagogicalTab>('estudio');
+  const [completingLesson, setCompletingLesson] = useState(false);
+
+  const handleCompleteLesson = async () => {
+    setCompletingLesson(true);
+    try {
+      const res = await api(`/api/progress/lessons/${lesson.id}/complete`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Error al completar lección');
+
+      if (data.courseCompleted) {
+        showToast(
+          'success',
+          '🎉 ¡Felicidades! Has completado el 100% del curso. Tu certificado ya está listo en "Mis Certificados".',
+        );
+      } else {
+        showToast('success', '✓ Lección completada con éxito');
+      }
+      onRefreshClassroom?.();
+    } catch (err: any) {
+      showToast('error', err.message || 'Error al completar la lección');
+    } finally {
+      setCompletingLesson(false);
+    }
+  };
 
   // Recursos complementarios
   const [resources, setResources] = useState<UnitResource[]>([]);
@@ -892,6 +919,58 @@ export default function UnitClassroomView({
           )}
         </div>
       )}
+
+      {/* Barra de Finalización de Lección */}
+      <div className="bg-white border border-[#D1D5DB] rounded-3xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs mt-6">
+        <div className="flex items-center gap-3.5">
+          <div
+            className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
+              lesson.isCompleted
+                ? 'bg-emerald-100 text-emerald-600'
+                : 'bg-slate-100 text-[#555861]'
+            }`}
+          >
+            <CheckCircle2 className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-xs font-black text-[#2B2D33]">
+              {lesson.isCompleted ? '¡Lección Completada!' : 'Estado de tu Avance'}
+            </p>
+            <p className="text-[11px] text-[#555861]">
+              {lesson.isCompleted
+                ? 'Has finalizado los contenidos de esta unidad académica.'
+                : 'Cuando termines de revisar el video o material, marca la unidad como completada para habilitar la siguiente.'}
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={handleCompleteLesson}
+          disabled={completingLesson || lesson.isCompleted}
+          className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer shadow-xs shrink-0 ${
+            lesson.isCompleted
+              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default'
+              : 'bg-[#F2412C] hover:bg-[#D93522] text-white shadow-md shadow-[#F2412C]/20'
+          }`}
+        >
+          {completingLesson ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Guardando avance...</span>
+            </>
+          ) : lesson.isCompleted ? (
+            <>
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Unidad Completada ✓</span>
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Marcar como Completada</span>
+            </>
+          )}
+        </button>
+      </div>
     </div>
   );
 }

@@ -346,13 +346,15 @@ export class CoursesService {
       }
     }
 
-    // Si se intenta publicar, validar checklist en el backend
+    // Si se intenta publicar, validar checklist en el backend (docentes)
     if (dto.status === 'published' && existing.status !== 'published') {
-      const checklist = await this.getPublishChecklist(id, user!);
-      if (!checklist.canPublish) {
-        throw new BadRequestException(
-          'El curso no cumple los requisitos para publicarse. Revisa el checklist.',
-        );
+      if (user && user.role === 'docente') {
+        const checklist = await this.getPublishChecklist(id, user);
+        if (!checklist.canPublish) {
+          throw new BadRequestException(
+            'El curso no cumple los requisitos para publicarse. Revisa el checklist.',
+          );
+        }
       }
     }
 
@@ -826,9 +828,10 @@ export class CoursesService {
     const modulesCount = activeModules.length;
     const hasModules = modulesCount >= 1;
 
-    // 4. Cada lección con video aprobado y al menos una lección publicada
+    // 4. Cada lección con video aprobado o material de estudio/grabación, y al menos una publicada
     const lessonRows = await this.pool.query(
       `SELECT l.id, l.title as "lessonTitle", l.video_id as "videoId", l.status as "lessonStatus",
+              l.study_material_url as "studyMaterialUrl", l.study_material_content as "studyMaterialContent",
               m.title as "moduleTitle",
               v.status as "videoStatus", v.title as "videoTitle", v.rejection_reason as "rejectionReason"
        FROM lessons l
@@ -845,15 +848,20 @@ export class CoursesService {
     let publishedLessonsCount = 0;
 
     if (totalLessons === 0) {
-      lessonIssues.push('El curso debe tener al menos una lección con video aprobado');
+      lessonIssues.push('El curso debe tener al menos una lección');
     } else {
       for (const row of lessonRows.rows) {
         if (row.lessonStatus === 'published') {
           publishedLessonsCount++;
         }
-        if (!row.videoId) {
-          lessonIssues.push(`"${row.lessonTitle}" (${row.moduleTitle}): No tiene video asignado`);
-        } else if (row.videoStatus !== 'approved') {
+        const hasContentOrUrl = Boolean(
+          (row.studyMaterialUrl && row.studyMaterialUrl.trim()) ||
+          (row.studyMaterialContent && row.studyMaterialContent.trim())
+        );
+
+        if (!row.videoId && !hasContentOrUrl) {
+          lessonIssues.push(`"${row.lessonTitle}" (${row.moduleTitle}): No tiene video ni material de estudio/grabación asignado`);
+        } else if (row.videoId && row.videoStatus !== 'approved') {
           if (row.videoStatus === 'rejected') {
             lessonIssues.push(`"${row.lessonTitle}": Video rechazado (${row.rejectionReason || 'No cumple requisitos'})`);
           } else {

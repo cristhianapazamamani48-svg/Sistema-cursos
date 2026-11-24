@@ -358,6 +358,25 @@ export default function AdminPanel({ onClose, initialTab }: AdminPanelProps) {
     }
   };
 
+  const handleToggleCourseStatus = async (courseId: number, currentStatus: string) => {
+    const nextStatus = currentStatus === 'published' ? 'draft' : 'published';
+    try {
+      const res = await api(`/api/courses/${courseId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Error al actualizar estado del curso');
+      setActionMsg({
+        type: 'success',
+        text: `Curso #${courseId} ${nextStatus === 'published' ? 'aprobado y publicado' : 'cambiado a borrador'}.`,
+      });
+      fetchData();
+    } catch (err: any) {
+      setActionMsg({ type: 'error', text: err.message });
+    }
+  };
+
   /* ------------------------------------------------------------------ */
   /* KPI Cards                                                            */
   /* ------------------------------------------------------------------ */
@@ -872,13 +891,14 @@ export default function AdminPanel({ onClose, initialTab }: AdminPanelProps) {
                   <th className="pb-3 px-3">Min Asistencia</th>
                   <th className="pb-3 px-3">Estado</th>
                   <th className="pb-3 px-3">Creado el</th>
+                  <th className="pb-3 px-3 text-right">Acción</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E4E6EA] font-medium text-[#2B2D33]">
                 {loading ? (
-                  <tr><td colSpan={7} className="py-8 text-center text-[#9EA3AC]">Cargando...</td></tr>
+                  <tr><td colSpan={8} className="py-8 text-center text-[#9EA3AC]">Cargando...</td></tr>
                 ) : coursesList.length === 0 ? (
-                  <tr><td colSpan={7} className="py-8 text-center text-[#9EA3AC]">No hay cursos registrados.</td></tr>
+                  <tr><td colSpan={8} className="py-8 text-center text-[#9EA3AC]">No hay cursos registrados.</td></tr>
                 ) : (
                   coursesList.map((c) => (
                     <tr key={c.id} className="hover:bg-[#E4E6EA]/40 transition">
@@ -908,6 +928,18 @@ export default function AdminPanel({ onClose, initialTab }: AdminPanelProps) {
                         </span>
                       </td>
                       <td className="py-4 px-3 text-[#9EA3AC]">{new Date(c.createdAt).toLocaleDateString('es-BO')}</td>
+                      <td className="py-4 px-3 text-right">
+                        <button
+                          onClick={() => handleToggleCourseStatus(c.id, c.status)}
+                          className={`px-3 py-1.5 rounded-xl font-bold text-xs transition cursor-pointer shadow-xs ${
+                            c.status === 'published'
+                              ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
+                              : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                          }`}
+                        >
+                          {c.status === 'published' ? 'Despublicar' : 'Aprobar y Publicar'}
+                        </button>
+                      </td>
                     </tr>
                   ))
                 )}
