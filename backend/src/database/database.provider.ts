@@ -146,6 +146,10 @@ export const databaseProviders: Provider[] = [
             attempt_number INTEGER NOT NULL DEFAULT 1,
             completed_at   TIMESTAMPTZ NOT NULL DEFAULT now()
           );
+
+          -- Perfil de usuario extendido
+          ALTER TABLE users ADD COLUMN IF NOT EXISTS bio text;
+          ALTER TABLE users ADD COLUMN IF NOT EXISTS phone text;
         `)
         .catch(() => { });
 
