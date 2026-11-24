@@ -11,11 +11,13 @@ import {
   Sparkles,
   Loader2,
   Lock,
-  Globe,
   Tag,
   Clock,
   Layers,
   Info,
+  Gift,
+  CreditCard,
+  Check,
 } from 'lucide-react';
 import { api } from './api';
 import {
@@ -35,6 +37,36 @@ interface CourseFormWizardProps {
   onSuccess: () => void;
   showToast: (type: 'success' | 'error' | 'info', text: string) => void;
 }
+
+// Portadas sugeridas de negocios de alta resolución (libres de Unsplash)
+const SUGGESTED_THUMBNAILS = [
+  {
+    label: 'Estrategia',
+    url: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=800&auto=format&fit=crop',
+  },
+  {
+    label: 'Finanzas',
+    url: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=800&auto=format&fit=crop',
+  },
+  {
+    label: 'Tecnología',
+    url: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop',
+  },
+  {
+    label: 'Marketing',
+    url: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format&fit=crop',
+  },
+  {
+    label: 'Liderazgo',
+    url: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&auto=format&fit=crop',
+  },
+  {
+    label: 'Contabilidad',
+    url: 'https://images.unsplash.com/photo-1554224154-26032ffc0d07?w=800&auto=format&fit=crop',
+  },
+];
+
+const QUICK_PRICES = ['100', '180', '250', '320', '450'];
 
 export default function CourseFormWizard({
   isOpen,
@@ -65,7 +97,7 @@ export default function CourseFormWizard({
   const [thumbnailUrl, setThumbnailUrl] = useState('');
   const [imgError, setImgError] = useState(false);
 
-  // Errores de validación en vivo (mapeados por campo)
+  // Errores de validación en vivo
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
@@ -86,7 +118,6 @@ export default function CourseFormWizard({
       setMinWatchPercentage(initialCourse.minWatchPercentage || 85);
       setThumbnailUrl(initialCourse.thumbnailUrl || '');
     } else {
-      // Valores por defecto para nuevo curso
       setTitle('');
       setSlug('');
       setAutoSlug(true);
@@ -118,7 +149,6 @@ export default function CourseFormWizard({
       .replace(/-+/g, '-');
   };
 
-  // Manejador de cambio en título con autogeneración de slug
   const handleTitleChange = (val: string) => {
     setTitle(val);
     const newSlug = autoSlug ? slugify(val) : slug;
@@ -138,7 +168,6 @@ export default function CourseFormWizard({
     validateField('slug', cleanSlug);
   };
 
-  // Validación en vivo con Zod por campo individual
   const validateField = (fieldName: string, value: any) => {
     let result;
     if (fieldName === 'title' || fieldName === 'slug' || fieldName === 'description' || fieldName === 'category') {
@@ -185,7 +214,6 @@ export default function CourseFormWizard({
     setTouched((prev) => ({ ...prev, [fieldName]: true }));
   };
 
-  // Validar paso 1 completo antes de avanzar
   const validateStep1 = (): boolean => {
     const res = courseInfoSchema.safeParse({
       title: title.trim(),
@@ -207,7 +235,6 @@ export default function CourseFormWizard({
     return true;
   };
 
-  // Validar paso 2 completo antes de avanzar
   const validateStep2 = (): boolean => {
     const res = coursePriceSchema.safeParse({
       isFree,
@@ -229,7 +256,6 @@ export default function CourseFormWizard({
     return true;
   };
 
-  // Validar paso 3 completo
   const validateStep3 = (): boolean => {
     const res = courseThumbnailSchema.safeParse({
       thumbnailUrl: thumbnailUrl.trim() || undefined,
@@ -248,16 +274,11 @@ export default function CourseFormWizard({
     return true;
   };
 
-  // Avanzar de paso
   const handleNext = () => {
-    if (currentStep === 1) {
-      if (validateStep1()) {
-        setCurrentStep(2);
-      }
-    } else if (currentStep === 2) {
-      if (validateStep2()) {
-        setCurrentStep(3);
-      }
+    if (currentStep === 1 && validateStep1()) {
+      setCurrentStep(2);
+    } else if (currentStep === 2 && validateStep2()) {
+      setCurrentStep(3);
     }
   };
 
@@ -267,7 +288,6 @@ export default function CourseFormWizard({
     }
   };
 
-  // Guardar curso (Nuevo como Borrador, o Actualizar existente)
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
 
@@ -288,7 +308,6 @@ export default function CourseFormWizard({
       minWatchPercentage: Number(minWatchPercentage) || 85,
     };
 
-    // Validación global con Zod antes del envío
     const validation = fullCourseFormSchema.safeParse(payload);
     if (!validation.success) {
       showToast('error', validation.error.errors[0]?.message || 'Datos del curso inválidos');
@@ -298,7 +317,6 @@ export default function CourseFormWizard({
     setIsSubmitting(true);
     try {
       if (isEditMode && initialCourse) {
-        // Actualizar curso existente
         const res = await api(`/api/courses/${initialCourse.id}`, {
           method: 'PATCH',
           body: JSON.stringify(payload),
@@ -311,7 +329,6 @@ export default function CourseFormWizard({
 
         showToast('success', `¡Curso "${data.title}" actualizado con éxito!`);
       } else {
-        // Crear nuevo curso (siempre en borrador por defecto)
         const res = await api('/api/courses', {
           method: 'POST',
           body: JSON.stringify(payload),
@@ -322,7 +339,7 @@ export default function CourseFormWizard({
           throw new Error(data.message || 'Error al crear curso');
         }
 
-        showToast('success', `¡Curso "${data.title}" guardado como borrador!`);
+        showToast('success', `¡Curso "${data.title}" creado con éxito en borrador!`);
       }
 
       onSuccess();
@@ -335,12 +352,12 @@ export default function CourseFormWizard({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#2B2D33]/60 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white border border-[#D1D5DB] text-[#2B2D33] rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden my-6 animate-fade-in flex flex-col max-h-[92vh]">
-        {/* CABECERA DEL WIZARD */}
-        <div className="p-6 bg-[#2B2D33] border-b border-[#363940] flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#F2412C] flex items-center justify-center text-white shadow-md shadow-[#F2412C]/20">
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+      <div className="bg-white border border-[#D1D5DB] text-[#2B2D33] rounded-3xl max-w-3xl w-full shadow-2xl overflow-hidden my-auto animate-fade-in flex flex-col max-h-[94vh]">
+        {/* ── CABECERA DEL WIZARD ── */}
+        <div className="px-6 py-5 bg-[#2B2D33] text-white flex items-center justify-between border-b border-[#363940]">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-[#F2412C] flex items-center justify-center text-white shadow-md shadow-[#F2412C]/30 shrink-0">
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
@@ -349,49 +366,49 @@ export default function CourseFormWizard({
               </h2>
               <p className="text-xs text-[#9EA3AC]">
                 {isEditMode
-                  ? 'Modifica los parámetros en 3 pasos ordenados'
-                  : 'Completa la información en 3 pasos (se guardará como borrador)'}
+                  ? 'Actualiza los datos académicos y comerciales'
+                  : 'Configura tu programa en 3 pasos sencillos (se guardará como borrador)'}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl hover:bg-[#363940] text-[#9EA3AC] hover:text-white transition"
+            className="p-2 rounded-xl hover:bg-[#363940] text-[#9EA3AC] hover:text-white transition cursor-pointer"
             title="Cerrar"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* INDICADOR DE LOS 3 PASOS */}
-        <div className="px-6 py-3.5 bg-[#E4E6EA]/70 border-b border-[#D1D5DB]">
-          <div className="grid grid-cols-3 gap-2">
+        {/* ── INDICADOR DE LOS 3 PASOS ── */}
+        <div className="px-6 py-3 bg-[#F8F9FA] border-b border-[#E4E6EA]">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4">
             {/* Paso 1 */}
             <button
               type="button"
               onClick={() => setCurrentStep(1)}
-              className={`flex items-center gap-2 p-2 rounded-xl text-left transition cursor-pointer ${
+              className={`flex items-center gap-2.5 p-2 rounded-2xl text-left transition cursor-pointer ${
                 currentStep === 1
-                  ? 'bg-[#F2412C]/20 border border-[#F2412C]/50 text-[#F87060]'
+                  ? 'bg-white shadow-xs border border-[#F2412C]/40 text-[#2B2D33]'
                   : currentStep > 1
-                  ? 'text-emerald-400 hover:bg-[#363940]/60'
-                  : 'text-[#636870] hover:bg-[#363940]/40'
+                  ? 'bg-white/60 border border-emerald-300 text-[#2B2D33]'
+                  : 'text-[#636870] hover:bg-white/50 border border-transparent'
               }`}
             >
               <div
-                className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold ${
+                className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-black shrink-0 ${
                   currentStep === 1
                     ? 'bg-[#F2412C] text-white'
                     : currentStep > 1
-                    ? 'bg-emerald-500 text-slate-950'
-                    : 'bg-[#363940] text-[#9EA3AC]'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-[#E4E6EA] text-[#636870]'
                 }`}
               >
-                {currentStep > 1 ? <CheckCircle2 className="w-4 h-4" /> : '1'}
+                {currentStep > 1 ? <Check className="w-4 h-4 stroke-[3]" /> : '1'}
               </div>
-              <div className="hidden sm:block">
-                <span className="text-xs font-bold block leading-none">Información</span>
-                <span className="text-[10px] text-[#9EA3AC]">Título y categoría</span>
+              <div className="min-w-0">
+                <span className="text-xs font-black block leading-tight truncate">Información</span>
+                <span className="text-[10px] text-[#636870] hidden sm:block truncate">Título y área</span>
               </div>
             </button>
 
@@ -401,28 +418,28 @@ export default function CourseFormWizard({
               onClick={() => {
                 if (validateStep1()) setCurrentStep(2);
               }}
-              className={`flex items-center gap-2 p-2 rounded-xl text-left transition cursor-pointer ${
+              className={`flex items-center gap-2.5 p-2 rounded-2xl text-left transition cursor-pointer ${
                 currentStep === 2
-                  ? 'bg-[#F2412C]/20 border border-[#F2412C]/50 text-[#F87060]'
+                  ? 'bg-white shadow-xs border border-[#F2412C]/40 text-[#2B2D33]'
                   : currentStep > 2
-                  ? 'text-emerald-400 hover:bg-[#363940]/60'
-                  : 'text-[#636870] hover:bg-[#363940]/40'
+                  ? 'bg-white/60 border border-emerald-300 text-[#2B2D33]'
+                  : 'text-[#636870] hover:bg-white/50 border border-transparent'
               }`}
             >
               <div
-                className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold ${
+                className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-black shrink-0 ${
                   currentStep === 2
                     ? 'bg-[#F2412C] text-white'
                     : currentStep > 2
-                    ? 'bg-emerald-500 text-slate-950'
-                    : 'bg-[#363940] text-[#9EA3AC]'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-[#E4E6EA] text-[#636870]'
                 }`}
               >
-                {currentStep > 2 ? <CheckCircle2 className="w-4 h-4" /> : '2'}
+                {currentStep > 2 ? <Check className="w-4 h-4 stroke-[3]" /> : '2'}
               </div>
-              <div className="hidden sm:block">
-                <span className="text-xs font-bold block leading-none">Precio</span>
-                <span className="text-[10px] text-[#9EA3AC]">Gratis o BOB</span>
+              <div className="min-w-0">
+                <span className="text-xs font-black block leading-tight truncate">Precio y Exigencia</span>
+                <span className="text-[10px] text-[#636870] hidden sm:block truncate">Gratis o Bs.</span>
               </div>
             </button>
 
@@ -432,41 +449,44 @@ export default function CourseFormWizard({
               onClick={() => {
                 if (validateStep1() && validateStep2()) setCurrentStep(3);
               }}
-              className={`flex items-center gap-2 p-2 rounded-xl text-left transition cursor-pointer ${
+              className={`flex items-center gap-2.5 p-2 rounded-2xl text-left transition cursor-pointer ${
                 currentStep === 3
-                  ? 'bg-[#F2412C]/20 border border-[#F2412C]/50 text-[#F87060]'
-                  : 'text-[#636870] hover:bg-[#363940]/40'
+                  ? 'bg-white shadow-xs border border-[#F2412C]/40 text-[#2B2D33]'
+                  : 'text-[#636870] hover:bg-white/50 border border-transparent'
               }`}
             >
               <div
-                className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold ${
+                className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-black shrink-0 ${
                   currentStep === 3
                     ? 'bg-[#F2412C] text-white'
-                    : 'bg-[#363940] text-[#9EA3AC]'
+                    : 'bg-[#E4E6EA] text-[#636870]'
                 }`}
               >
                 3
               </div>
-              <div className="hidden sm:block">
-                <span className="text-xs font-bold block leading-none">Portada</span>
-                <span className="text-[10px] text-[#9EA3AC]">URL e imagen</span>
+              <div className="min-w-0">
+                <span className="text-xs font-black block leading-tight truncate">Portada y Preview</span>
+                <span className="text-[10px] text-[#636870] hidden sm:block truncate">Imagen del curso</span>
               </div>
             </button>
           </div>
         </div>
 
-        {/* CUERPO DEL PASO (SCROLLABLE) */}
+        {/* ── CUERPO DEL PASO (SCROLLABLE) ── */}
         <div className="p-6 overflow-y-auto flex-1 space-y-6">
           {/* ======================================================== */}
-          {/* PASO 1: INFORMACIÓN                                     */}
+          {/* PASO 1: INFORMACIÓN GENERAL DEL PROGRAMA                */}
           {/* ======================================================== */}
           {currentStep === 1 && (
-            <div className="space-y-4 animate-fade-in">
+            <div className="space-y-5 animate-fade-in">
               {/* Título */}
               <div>
-                <label className="text-xs font-bold text-[#2B2D33] flex items-center justify-between mb-1">
-                  <span>Título del Curso *</span>
-                  <span className="text-[11px] text-[#9EA3AC] font-normal">
+                <label className="text-xs font-bold text-[#2B2D33] flex items-center justify-between mb-1.5">
+                  <span className="flex items-center gap-1.5">
+                    <FileText className="w-4 h-4 text-[#F2412C]" />
+                    Título del Curso <span className="text-rose-500">*</span>
+                  </span>
+                  <span className={`text-[11px] font-mono ${title.length > 100 ? 'text-amber-600 font-bold' : 'text-[#636870]'}`}>
                     {title.length}/120
                   </span>
                 </label>
@@ -475,28 +495,28 @@ export default function CourseFormWizard({
                   value={title}
                   onChange={(e) => handleTitleChange(e.target.value)}
                   onBlur={() => markTouched('title')}
-                  placeholder="ej. Auditoría Financiera y Contabilidad Gubernamental"
-                  className={`w-full bg-[#F8F9FA] border border-[#C9CDD4] rounded-xl px-4 py-2.5 text-xs text-[#2B2D33] focus:bg-white placeholder-slate-500 focus:outline-none transition ${
+                  placeholder="ej. Auditoría Financiera y Gestión del Flujo de Caja"
+                  className={`w-full bg-[#F8F9FA] border rounded-2xl px-4 py-3 text-xs text-[#2B2D33] font-medium placeholder-slate-400 focus:bg-white focus:outline-none transition ${
                     touched.title && errors.title
-                      ? 'border-rose-500 focus:border-rose-500'
-                      : 'border-[#40444B] focus:border-[#F2412C]'
+                      ? 'border-rose-500 ring-2 ring-rose-500/10'
+                      : 'border-[#D1D5DB] focus:border-[#F2412C] focus:ring-2 focus:ring-[#F2412C]/10'
                   }`}
                 />
                 {touched.title && errors.title && (
-                  <p className="text-[11px] text-rose-400 mt-1 flex items-center gap-1 font-medium">
+                  <p className="text-[11px] text-rose-500 mt-1.5 flex items-center gap-1 font-semibold">
                     <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                     <span>{errors.title}</span>
                   </p>
                 )}
               </div>
 
-              {/* Slug Automático Editable */}
+              {/* Slug / Enlace permanente */}
               <div>
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center justify-between mb-1.5">
                   <label className="text-xs font-bold text-[#2B2D33]">
-                    Slug / Enlace permanente *
+                    Enlace permanente (Slug web) <span className="text-rose-500">*</span>
                   </label>
-                  <label className="text-[11px] text-[#9EA3AC] flex items-center gap-1.5 cursor-pointer">
+                  <label className="text-[11px] text-[#636870] font-medium flex items-center gap-1.5 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={autoSlug}
@@ -510,83 +530,85 @@ export default function CourseFormWizard({
                       }}
                       className="rounded accent-[#F2412C] cursor-pointer"
                     />
-                    Autogenerar desde título
+                    Autogenerar desde el título
                   </label>
                 </div>
                 <div
-                  className={`flex items-center bg-[#F8F9FA] border border-[#C9CDD4] rounded-xl px-3 py-2 text-xs font-mono text-[#2B2D33] transition ${
+                  className={`flex items-center bg-[#F8F9FA] border rounded-2xl px-3.5 py-2.5 text-xs font-mono text-[#2B2D33] transition ${
                     touched.slug && errors.slug
-                      ? 'border-rose-500'
-                      : 'border-[#40444B] focus-within:border-[#F2412C]'
+                      ? 'border-rose-500 ring-2 ring-rose-500/10'
+                      : 'border-[#D1D5DB] focus-within:border-[#F2412C] focus-within:bg-white'
                   }`}
                 >
-                  <span className="text-[#636870] select-none">/courses/</span>
+                  <span className="text-[#9EA3AC] select-none font-bold">/courses/</span>
                   <input
                     type="text"
                     value={slug}
                     onChange={(e) => handleSlugChange(e.target.value)}
                     onBlur={() => markTouched('slug')}
-                    placeholder="auditoria-financiera-gubernamental"
-                    className="w-full bg-transparent text-[#2B2D33] focus:outline-none ml-1"
+                    placeholder="auditoria-financiera-flujo-caja"
+                    className="w-full bg-transparent text-[#2B2D33] focus:outline-none ml-1 font-bold"
                   />
                 </div>
                 {touched.slug && errors.slug ? (
-                  <p className="text-[11px] text-rose-400 mt-1 flex items-center gap-1 font-medium">
+                  <p className="text-[11px] text-rose-500 mt-1.5 flex items-center gap-1 font-semibold">
                     <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                     <span>{errors.slug}</span>
                   </p>
                 ) : (
                   <p className="text-[11px] text-[#636870] mt-1">
-                    Dirección web única por la cual accederán los estudiantes.
+                    URL limpia por la que los estudiantes ingresarán directamente al aula.
                   </p>
                 )}
               </div>
 
-              {/* Categoría */}
+              {/* Categoría con Chips interactivos */}
               <div>
-                <label className="text-xs font-bold text-[#2B2D33] block mb-1">
-                  Categoría o Área Temática
+                <label className="text-xs font-bold text-[#2B2D33] flex items-center gap-1.5 mb-1.5">
+                  <Tag className="w-4 h-4 text-[#F2412C]" />
+                  Categoría o Área de Especialidad
                 </label>
-                <div className="space-y-2">
-                  <select
-                    value={POPULAR_CATEGORIES.includes(category as any) ? category : category ? 'other' : ''}
+                <div className="space-y-2.5">
+                  <div className="flex flex-wrap gap-1.5">
+                    {POPULAR_CATEGORIES.map((cat) => {
+                      const isSelected = category.toLowerCase() === cat.toLowerCase();
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => {
+                            const newCat = isSelected ? '' : cat;
+                            setCategory(newCat);
+                            validateField('category', newCat);
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
+                            isSelected
+                              ? 'bg-[#F2412C] text-white border-[#F2412C] shadow-sm'
+                              : 'bg-white hover:bg-slate-50 text-[#555861] border-[#D1D5DB]'
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <input
+                    type="text"
+                    value={category}
                     onChange={(e) => {
-                      if (e.target.value === 'other') {
-                        setCategory('');
-                      } else {
-                        setCategory(e.target.value);
-                      }
+                      setCategory(e.target.value);
                       validateField('category', e.target.value);
                     }}
-                    className="w-full bg-[#F8F9FA] border border-[#C9CDD4] rounded-xl px-4 py-2.5 text-xs text-[#2B2D33] focus:bg-white focus:outline-none focus:border-[#F2412C]"
-                  >
-                    <option value="">-- Selecciona una categoría sugerida --</option>
-                    {POPULAR_CATEGORIES.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                    <option value="other">Personalizada / Otra categoría...</option>
-                  </select>
-
-                  {(!POPULAR_CATEGORIES.includes(category as any) || category === '') && (
-                    <input
-                      type="text"
-                      value={category}
-                      onChange={(e) => {
-                        setCategory(e.target.value);
-                        validateField('category', e.target.value);
-                      }}
-                      placeholder="Escribe el nombre de tu categoría personalizada..."
-                      className="w-full bg-[#F8F9FA] border border-[#C9CDD4] rounded-xl px-4 py-2 text-xs text-[#2B2D33] focus:bg-white placeholder-slate-500 focus:outline-none focus:border-[#F2412C]"
-                    />
-                  )}
+                    placeholder="O escribe otra categoría personalizada (ej. Comercio Exterior)..."
+                    className="w-full bg-[#F8F9FA] border border-[#D1D5DB] rounded-2xl px-4 py-2.5 text-xs text-[#2B2D33] focus:bg-white focus:outline-none focus:border-[#F2412C]"
+                  />
                 </div>
               </div>
 
               {/* Descripción */}
               <div>
-                <label className="text-xs font-bold text-[#2B2D33] block mb-1">
+                <label className="text-xs font-bold text-[#2B2D33] block mb-1.5">
                   Descripción del Curso
                 </label>
                 <textarea
@@ -596,26 +618,26 @@ export default function CourseFormWizard({
                     setDescription(e.target.value);
                     validateField('description', e.target.value);
                   }}
-                  placeholder="Detalla los objetivos de aprendizaje, temarios y a quién va dirigido este curso..."
-                  className="w-full bg-[#F8F9FA] border border-[#C9CDD4] rounded-xl px-4 py-2.5 text-xs text-[#2B2D33] focus:bg-white placeholder-slate-500 focus:outline-none focus:border-[#F2412C] resize-none"
+                  placeholder="Detalla los objetivos del curso, habilidades que adquirirá el estudiante y requisitos previos..."
+                  className="w-full bg-[#F8F9FA] border border-[#D1D5DB] rounded-2xl px-4 py-3 text-xs text-[#2B2D33] focus:bg-white placeholder-slate-400 focus:outline-none focus:border-[#F2412C] resize-none"
                 />
               </div>
             </div>
           )}
 
           {/* ======================================================== */}
-          {/* PASO 2: PRECIO (GRATIS O DE PAGO EN BOB)                 */}
+          {/* PASO 2: PRECIO (GRATIS O EN BOLIVIANOS)                   */}
           {/* ======================================================== */}
           {currentStep === 2 && (
             <div className="space-y-6 animate-fade-in">
               <div>
-                <h3 className="text-sm font-bold text-white mb-1">Modalidad de Inscripción</h3>
-                <p className="text-xs text-[#9EA3AC]">
-                  Define si el curso será de acceso libre o requerirá pago en moneda nacional (BOB).
+                <h3 className="text-sm font-black text-[#2B2D33] mb-1">Modelo de Acceso</h3>
+                <p className="text-xs text-[#636870]">
+                  Selecciona si el curso será gratuito o requerirá pago en moneda nacional (BOB).
                 </p>
               </div>
 
-              {/* Opciones de Modalidad (Gratis vs Pago) */}
+              {/* Selector de Modalidad */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Opción 1: Gratis */}
                 <button
@@ -626,31 +648,31 @@ export default function CourseFormWizard({
                     validateField('isFree', true);
                     validateField('price', '0');
                   }}
-                  className={`p-5 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between space-y-3 ${
+                  className={`p-5 rounded-3xl border-2 text-left transition cursor-pointer flex flex-col justify-between gap-3 ${
                     isFree
-                      ? 'bg-emerald-950/40 border-emerald-500/60 shadow-lg shadow-emerald-500/10'
-                      : 'bg-[#1A1C20]/60 border-[#363940] hover:border-[#40444B]'
+                      ? 'bg-emerald-50/70 border-emerald-500 shadow-sm'
+                      : 'bg-white border-[#D1D5DB] hover:border-slate-300'
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-black px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 uppercase">
-                      Gratis
+                    <span className="inline-flex items-center gap-1.5 text-xs font-black px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 uppercase">
+                      <Gift className="w-3.5 h-3.5" /> Gratis
                     </span>
                     <div
-                      className={`w-5 h-5 rounded-full border flex items-center justify-center ${
-                        isFree ? 'border-emerald-500 bg-emerald-500' : 'border-slate-600'
+                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                        isFree ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-300 bg-white'
                       }`}
                     >
-                      {isFree && <CheckCircle2 className="w-3.5 h-3.5 text-slate-950 stroke-[3]" />}
+                      {isFree && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                     </div>
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-white">Acceso Gratuito</h4>
-                    <p className="text-xs text-[#9EA3AC] mt-0.5">
-                      Cualquier estudiante registrado puede inscribirse inmediatamente sin costo.
+                    <h4 className="text-sm font-black text-[#2B2D33]">Acceso Libre</h4>
+                    <p className="text-xs text-[#636870] mt-1 leading-relaxed">
+                      Cualquier estudiante registrado puede inscribirse al instante con un clic.
                     </p>
                   </div>
-                  <div className="text-lg font-black text-emerald-400">0 BOB</div>
+                  <div className="text-xl font-black text-emerald-700">0 BOB</div>
                 </button>
 
                 {/* Opción 2: De Pago */}
@@ -658,71 +680,96 @@ export default function CourseFormWizard({
                   type="button"
                   onClick={() => {
                     setIsFree(false);
-                    const currentVal = Number(price) > 0 ? price : '150';
+                    const currentVal = Number(price) > 0 ? price : '180';
                     setPrice(currentVal);
                     validateField('isFree', false);
                     validateField('price', currentVal);
                   }}
-                  className={`p-5 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between space-y-3 ${
+                  className={`p-5 rounded-3xl border-2 text-left transition cursor-pointer flex flex-col justify-between gap-3 ${
                     !isFree
-                      ? 'bg-[#2D1210]/40 border-[#F2412C]/60 shadow-lg shadow-blue-500/10'
-                      : 'bg-[#1A1C20]/60 border-[#363940] hover:border-[#40444B]'
+                      ? 'bg-amber-50/70 border-[#F2412C] shadow-sm'
+                      : 'bg-white border-[#D1D5DB] hover:border-slate-300'
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-black px-2.5 py-1 rounded-lg bg-[#F2412C]/20 text-[#F2412C] border border-[#F2412C]/40 uppercase">
-                      De Pago
+                    <span className="inline-flex items-center gap-1.5 text-xs font-black px-3 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 uppercase">
+                      <CreditCard className="w-3.5 h-3.5 text-[#F2412C]" /> De Pago
                     </span>
                     <div
-                      className={`w-5 h-5 rounded-full border flex items-center justify-center ${
-                        !isFree ? 'border-[#F2412C] bg-[#F5543F]' : 'border-slate-600'
+                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                        !isFree ? 'border-[#F2412C] bg-[#F2412C] text-white' : 'border-slate-300 bg-white'
                       }`}
                     >
-                      {!isFree && <CheckCircle2 className="w-3.5 h-3.5 text-slate-950 stroke-[3]" />}
+                      {!isFree && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                     </div>
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-white">Venta Institucional</h4>
-                    <p className="text-xs text-[#9EA3AC] mt-0.5">
-                      Genera órdenes de pago en Bolivianos con confirmación de comprobante.
+                    <h4 className="text-sm font-black text-[#2B2D33]">Inscripción de Pago</h4>
+                    <p className="text-xs text-[#636870] mt-1 leading-relaxed">
+                      Genera órdenes de pago en Bolivianos (BOB) con verificación de comprobante.
                     </p>
                   </div>
-                  <div className="text-lg font-black text-[#F2412C]">
-                    {!isFree && Number(price) > 0 ? `${price} BOB` : 'Fijar monto'}
+                  <div className="text-xl font-black text-[#F2412C]">
+                    {!isFree && Number(price) > 0 ? `${price} BOB` : '180 BOB'}
                   </div>
                 </button>
               </div>
 
-              {/* Input de Precio en BOB (si es de pago) */}
+              {/* Si es de pago: Input y Precios Rápidos */}
               {!isFree && (
-                <div className="bg-[#1A1C20]/80 border border-[#363940] rounded-2xl p-4 space-y-2 animate-fade-in">
+                <div className="bg-[#F8F9FA] border border-[#D1D5DB] rounded-3xl p-5 space-y-3.5 animate-fade-in">
                   <label className="text-xs font-bold text-[#2B2D33] block">
-                    Monto a cobrar (en Bolivianos - BOB) *
+                    Monto de Inscripción (en Bolivianos - BOB) <span className="text-rose-500">*</span>
                   </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      min="1"
-                      step="1"
-                      value={price}
-                      onChange={(e) => {
-                        setPrice(e.target.value);
-                        validateField('price', e.target.value);
-                      }}
-                      onBlur={() => markTouched('price')}
-                      placeholder="ej. 350"
-                      className={`w-full bg-[#2B2D33] border rounded-xl pl-4 pr-16 py-2.5 text-sm font-bold text-white focus:outline-none transition ${
-                        touched.price && errors.price
-                          ? 'border-rose-500 focus:border-rose-500'
-                          : 'border-[#40444B] focus:border-[#F2412C]'
-                      }`}
-                    />
-                    <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-extrabold text-[#F2412C] select-none">
-                      BOB
+
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1">
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={price}
+                        onChange={(e) => {
+                          setPrice(e.target.value);
+                          validateField('price', e.target.value);
+                        }}
+                        onBlur={() => markTouched('price')}
+                        placeholder="ej. 250"
+                        className={`w-full bg-white border rounded-2xl pl-4 pr-16 py-3 text-base font-black text-[#2B2D33] focus:outline-none transition ${
+                          touched.price && errors.price
+                            ? 'border-rose-500 ring-2 ring-rose-500/10'
+                            : 'border-[#D1D5DB] focus:border-[#F2412C]'
+                        }`}
+                      />
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-[#F2412C] select-none">
+                        BOB
+                      </div>
+                    </div>
+
+                    {/* Botones de precios sugeridos */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {QUICK_PRICES.map((qp) => (
+                        <button
+                          key={qp}
+                          type="button"
+                          onClick={() => {
+                            setPrice(qp);
+                            validateField('price', qp);
+                          }}
+                          className={`px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer border ${
+                            price === qp
+                              ? 'bg-[#2B2D33] text-white border-[#2B2D33]'
+                              : 'bg-white hover:bg-slate-100 text-[#555861] border-[#D1D5DB]'
+                          }`}
+                        >
+                          {qp} Bs.
+                        </button>
+                      ))}
                     </div>
                   </div>
+
                   {touched.price && errors.price && (
-                    <p className="text-[11px] text-rose-400 flex items-center gap-1 font-medium">
+                    <p className="text-[11px] text-rose-500 flex items-center gap-1 font-semibold">
                       <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                       <span>{errors.price}</span>
                     </p>
@@ -730,14 +777,14 @@ export default function CourseFormWizard({
                 </div>
               )}
 
-              {/* Parámetro Académico: Aprobación Mínima (%) */}
-              <div className="bg-[#1A1C20]/50 border border-[#363940] rounded-2xl p-4 space-y-2">
+              {/* Parámetro de Aprobación Mínima (%) */}
+              <div className="bg-[#F8F9FA] border border-[#D1D5DB] rounded-3xl p-5 space-y-3">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-[#2B2D33] flex items-center gap-1.5">
+                  <label className="text-xs font-bold text-[#2B2D33] flex items-center gap-2">
                     <Clock className="w-4 h-4 text-[#F2412C]" />
-                    <span>Requisito Mínimo de Visualización (%)</span>
+                    <span>Exigencia Mínima de Visualización de Videos</span>
                   </label>
-                  <span className="text-xs font-extrabold text-white bg-[#363940] px-2.5 py-0.5 rounded-lg border border-[#40444B]">
+                  <span className="text-xs font-black text-[#2B2D33] bg-white px-3 py-1 rounded-xl border border-[#D1D5DB] shadow-xs">
                     {minWatchPercentage}%
                   </span>
                 </div>
@@ -754,29 +801,75 @@ export default function CourseFormWizard({
                   }}
                   className="w-full accent-[#F2412C] cursor-pointer"
                 />
-                <p className="text-[11px] text-[#636870]">
-                  Porcentaje del contenido en video que el estudiante debe visualizar para aprobar y certificar (estándar: 85%).
-                </p>
+                <div className="flex justify-between text-[11px] text-[#636870]">
+                  <span>50% (Flexible)</span>
+                  <span className="font-bold text-[#2B2D33]">85% (Recomendado estándar)</span>
+                  <span>100% (Estricto)</span>
+                </div>
               </div>
             </div>
           )}
 
           {/* ======================================================== */}
-          {/* PASO 3: PORTADA CON VISTA PREVIA EN VIVO                */}
+          {/* PASO 3: PORTADA Y VISTA PREVIA PROFESIONAL              */}
           {/* ======================================================== */}
           {currentStep === 3 && (
             <div className="space-y-6 animate-fade-in">
               <div>
-                <h3 className="text-sm font-bold text-white mb-1">Portada del Curso</h3>
-                <p className="text-xs text-[#9EA3AC]">
-                  Ingresa una URL directa de imagen para la portada y comprueba la vista previa en vivo.
+                <h3 className="text-sm font-black text-[#2B2D33] mb-1">Imagen de Portada</h3>
+                <p className="text-xs text-[#636870]">
+                  Elige una portada temática de alta calidad con 1 clic o ingresa tu propia URL.
                 </p>
               </div>
 
-              {/* Input URL de Imagen */}
+              {/* Selector de Portadas Rápidas Sugeridas */}
               <div>
-                <label className="text-xs font-bold text-[#2B2D33] block mb-1">
-                  URL de la Imagen (HTTPS)
+                <label className="text-xs font-bold text-[#2B2D33] block mb-2">
+                  Portadas temáticas de libre uso:
+                </label>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                  {SUGGESTED_THUMBNAILS.map((sug) => {
+                    const isSelected = thumbnailUrl === sug.url;
+                    return (
+                      <button
+                        key={sug.label}
+                        type="button"
+                        onClick={() => {
+                          setThumbnailUrl(sug.url);
+                          setImgError(false);
+                          validateField('thumbnailUrl', sug.url);
+                        }}
+                        className={`relative rounded-xl overflow-hidden border-2 aspect-video group cursor-pointer transition ${
+                          isSelected
+                            ? 'border-[#F2412C] ring-2 ring-[#F2412C]/20 shadow-sm'
+                            : 'border-[#D1D5DB] hover:border-slate-400'
+                        }`}
+                      >
+                        <img
+                          src={sug.url}
+                          alt={sug.label}
+                          className="w-full h-full object-cover group-hover:scale-105 transition"
+                        />
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                          <span className="text-[10px] font-black text-white drop-shadow">
+                            {sug.label}
+                          </span>
+                        </div>
+                        {isSelected && (
+                          <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-[#F2412C] text-white flex items-center justify-center shadow">
+                            <Check className="w-2.5 h-2.5 stroke-[3]" />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Campo para ingresar URL personalizada */}
+              <div>
+                <label className="text-xs font-bold text-[#2B2D33] block mb-1.5">
+                  O pega una URL directa de imagen (HTTPS):
                 </label>
                 <div className="relative">
                   <input
@@ -788,11 +881,11 @@ export default function CourseFormWizard({
                       validateField('thumbnailUrl', e.target.value);
                     }}
                     onBlur={() => markTouched('thumbnailUrl')}
-                    placeholder="https://images.unsplash.com/photo-..."
-                    className={`w-full bg-[#1A1C20] border rounded-xl pl-4 pr-10 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition ${
+                    placeholder="https://images.unsplash.com/..."
+                    className={`w-full bg-[#F8F9FA] border rounded-2xl pl-4 pr-10 py-2.5 text-xs text-[#2B2D33] placeholder-slate-400 focus:bg-white focus:outline-none transition ${
                       touched.thumbnailUrl && errors.thumbnailUrl
-                        ? 'border-rose-500'
-                        : 'border-[#40444B] focus:border-[#F2412C]'
+                        ? 'border-rose-500 ring-2 ring-rose-500/10'
+                        : 'border-[#D1D5DB] focus:border-[#F2412C]'
                     }`}
                   />
                   {thumbnailUrl && (
@@ -803,154 +896,107 @@ export default function CourseFormWizard({
                         setImgError(false);
                         validateField('thumbnailUrl', '');
                       }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#636870] hover:text-white"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#636870] hover:text-[#2B2D33] cursor-pointer"
                     >
-                      <X className="w-3.5 h-3.5" />
+                      <X className="w-4 h-4" />
                     </button>
                   )}
                 </div>
                 {touched.thumbnailUrl && errors.thumbnailUrl && (
-                  <p className="text-[11px] text-rose-400 mt-1 flex items-center gap-1 font-medium">
+                  <p className="text-[11px] text-rose-500 mt-1 flex items-center gap-1 font-semibold">
                     <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                     <span>{errors.thumbnailUrl}</span>
                   </p>
                 )}
-
-                {/* Sugerencias de imágenes de prueba */}
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-[11px] text-[#636870]">Imágenes sugeridas:</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const url =
-                        'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=800&auto=format&fit=crop';
-                      setThumbnailUrl(url);
-                      setImgError(false);
-                      validateField('thumbnailUrl', url);
-                    }}
-                    className="text-[11px] text-[#F2412C] hover:underline"
-                  >
-                    Finanzas
-                  </button>
-                  <span className="text-[#50545C]">•</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const url =
-                        'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop';
-                      setThumbnailUrl(url);
-                      setImgError(false);
-                      validateField('thumbnailUrl', url);
-                    }}
-                    className="text-[11px] text-[#F2412C] hover:underline"
-                  >
-                    Tecnología
-                  </button>
-                  <span className="text-[#50545C]">•</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const url =
-                        'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=800&auto=format&fit=crop';
-                      setThumbnailUrl(url);
-                      setImgError(false);
-                      validateField('thumbnailUrl', url);
-                    }}
-                    className="text-[11px] text-[#F2412C] hover:underline"
-                  >
-                    Auditoría
-                  </button>
-                </div>
               </div>
 
-              {/* VISTA PREVIA EN VIVO DE LA TARJETA */}
+              {/* TARJETA DE VISTA PREVIA EN TIEMPO REAL */}
               <div>
-                <label className="text-xs font-bold text-[#9EA3AC] flex items-center gap-1.5 mb-2">
-                  <ImageIcon className="w-3.5 h-3.5 text-[#F2412C]" />
-                  <span>Vista Previa de la Tarjeta del Curso:</span>
+                <label className="text-xs font-bold text-[#2B2D33] flex items-center gap-2 mb-2.5">
+                  <ImageIcon className="w-4 h-4 text-[#F2412C]" />
+                  <span>Vista previa de cómo se verá tu curso en el catálogo:</span>
                 </label>
 
-                <div className="bg-[#1A1C20] border border-[#363940] rounded-3xl overflow-hidden max-w-sm mx-auto shadow-xl group">
-                  {/* Contenedor de la portada */}
+                <div className="bg-white border border-[#D1D5DB] rounded-3xl overflow-hidden max-w-sm mx-auto shadow-md hover:shadow-lg transition">
+                  {/* Imagen */}
                   <div className="relative h-44 w-full bg-[#2B2D33] overflow-hidden">
                     {thumbnailUrl && !imgError ? (
                       <img
                         src={thumbnailUrl}
-                        alt="Vista previa de portada"
-                        className="w-full h-full object-cover transition duration-300"
+                        alt="Vista previa"
+                        className="w-full h-full object-cover"
                         onError={() => setImgError(true)}
                       />
                     ) : (
-                      <div className="w-full h-full bg-[#2B2D33] flex flex-col items-center justify-center p-4 text-center">
-                        <div className="w-10 h-10 rounded-2xl bg-[#F2412C]/20 border border-[#F2412C]/30 flex items-center justify-center text-[#F2412C] mb-1.5">
-                          <ImageIcon className="w-5 h-5" />
-                        </div>
-                        <span className="text-[11px] font-bold text-[#9EA3AC]">
-                          {imgError ? 'Error al cargar imagen' : 'Sin imagen de portada'}
+                      <div className="w-full h-full bg-[#2B2D33] flex flex-col items-center justify-center p-4 text-center text-white">
+                        <ImageIcon className="w-8 h-8 text-[#9EA3AC] mb-1" />
+                        <span className="text-xs font-bold">
+                          {imgError ? 'Error al cargar imagen' : 'Sin imagen seleccionada'}
                         </span>
-                        <span className="text-[10px] text-[#636870]">
-                          (Se usará un fondo institucional)
+                        <span className="text-[10px] text-[#9EA3AC]">
+                          (Se mostrará fondo institucional)
                         </span>
                       </div>
                     )}
 
-                    {/* Badge de Borrador */}
+                    {/* Badges superiores */}
                     <div className="absolute top-2.5 left-2.5">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-950/90 text-amber-300 border border-amber-500/40 shadow-lg">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-[#2B2D33]/90 text-amber-300 border border-amber-500/40 shadow">
                         <Lock className="w-2.5 h-2.5 text-amber-400" />
-                        {isEditMode && initialCourse?.status === 'published'
-                          ? 'Publicado'
-                          : 'Borrador'}
+                        {isEditMode && initialCourse?.status === 'published' ? 'Publicado' : 'Borrador'}
                       </span>
                     </div>
 
-                    {/* Badge de Precio */}
                     <div className="absolute top-2.5 right-2.5">
-                      <span className="px-2.5 py-0.5 rounded-xl text-[10px] font-black bg-[#1A1C20]/90 text-white border border-[#40444B] shadow-lg">
+                      <span className={`px-2.5 py-0.5 rounded-xl text-[10px] font-black shadow ${
+                        isFree
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-[#F2412C] text-white'
+                      }`}>
                         {isFree ? 'GRATIS' : `${price || 0} BOB`}
                       </span>
                     </div>
 
                     {category && (
                       <div className="absolute bottom-2.5 left-2.5">
-                        <span className="text-[10px] font-bold text-[#F87060] bg-[#2B2D33]/90 px-2 py-0.5 rounded-md border border-[#363940] flex items-center gap-1">
+                        <span className="text-[10px] font-bold text-white bg-[#2B2D33]/90 px-2 py-0.5 rounded-md border border-white/20 flex items-center gap-1">
                           <Tag className="w-3 h-3 text-[#F2412C]" /> {category}
                         </span>
                       </div>
                     )}
                   </div>
 
-                  {/* Cuerpo de la tarjeta previa */}
+                  {/* Detalle */}
                   <div className="p-4 space-y-2">
-                    <h4 className="text-sm font-bold text-white line-clamp-1">
-                      {title || 'Título de tu nuevo curso'}
+                    <h4 className="text-sm font-black text-[#2B2D33] line-clamp-1">
+                      {title || 'Título del curso'}
                     </h4>
-                    <p className="text-[11px] text-[#9EA3AC] line-clamp-2 min-h-[30px]">
-                      {description || 'Sin descripción redactada aún.'}
+                    <p className="text-xs text-[#636870] line-clamp-2 min-h-[32px]">
+                      {description || 'Sin descripción redactada.'}
                     </p>
-                    <div className="pt-2 border-t border-[#363940] flex items-center justify-between text-[11px] text-[#9EA3AC]">
+                    <div className="pt-2 border-t border-[#E4E6EA] flex items-center justify-between text-[11px] text-[#636870]">
                       <span className="flex items-center gap-1">
                         <Layers className="w-3 h-3 text-[#F2412C]" /> 0 módulos
                       </span>
                       <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-emerald-400" /> Req: {minWatchPercentage}%
+                        <Clock className="w-3 h-3 text-emerald-600" /> Req: {minWatchPercentage}%
                       </span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Aviso de Guardado */}
-              <div className="p-3.5 bg-[#2D1210]/40 border border-[#F2412C]/30 rounded-2xl flex items-start gap-3">
-                <Info className="w-4 h-4 text-[#F2412C] shrink-0 mt-0.5" />
-                <div className="text-xs text-[#2B2D33]">
-                  <span className="font-bold text-white block">
-                    {isEditMode ? 'Actualización de Curso' : 'Guardado como Borrador'}
+              {/* Aviso de creación */}
+              <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3">
+                <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                <div className="text-xs text-amber-950">
+                  <span className="font-bold block">
+                    {isEditMode ? 'Actualización inmediata' : 'Guardado seguro en Borrador'}
                   </span>
-                  <p className="text-[11px] text-[#9EA3AC] mt-0.5">
+                  <p className="text-[11px] text-amber-800 mt-0.5">
                     {isEditMode
-                      ? 'Los cambios se aplicarán de inmediato a tu curso existente.'
-                      : 'El curso se guardará inicialmente en estado Borrador para que puedas organizar módulos y lecciones con total tranquilidad antes de publicarlo.'}
+                      ? 'Los cambios se reflejarán de inmediato.'
+                      : 'El curso se crea como borrador para que puedas agregar módulos, lecciones y materiales antes de publicarlo.'}
                   </p>
                 </div>
               </div>
@@ -958,15 +1004,15 @@ export default function CourseFormWizard({
           )}
         </div>
 
-        {/* PIE DE PÁGINA CON BOTONES DE NAVEGACIÓN Y GUARDADO */}
-        <div className="p-4 sm:p-6 bg-[#E4E6EA]/60 border-t border-[#D1D5DB] flex items-center justify-between gap-3">
+        {/* ── PIE DE PÁGINA CON ACCIONES ── */}
+        <div className="px-6 py-4 bg-[#F8F9FA] border-t border-[#E4E6EA] flex items-center justify-between gap-3">
           <div>
             {currentStep > 1 ? (
               <button
                 type="button"
                 onClick={handleBack}
                 disabled={isSubmitting}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#363940] hover:bg-[#40444B] text-slate-200 text-xs font-bold transition cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-[#2B2D33] text-xs font-bold border border-[#D1D5DB] transition cursor-pointer"
               >
                 <ArrowLeft className="w-4 h-4" />
                 <span>Atrás</span>
@@ -976,7 +1022,7 @@ export default function CourseFormWizard({
                 type="button"
                 onClick={onClose}
                 disabled={isSubmitting}
-                className="px-4 py-2.5 rounded-xl bg-[#363940]/80 hover:bg-[#363940] text-[#9EA3AC] hover:text-white text-xs font-bold transition cursor-pointer"
+                className="px-4 py-2.5 rounded-xl text-[#636870] hover:text-[#2B2D33] text-xs font-bold transition cursor-pointer"
               >
                 Cancelar
               </button>
@@ -988,7 +1034,7 @@ export default function CourseFormWizard({
               <button
                 type="button"
                 onClick={handleNext}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#F2412C] hover:bg-[#F5543F] text-white text-xs font-bold shadow-lg shadow-[#F2412C]/30 transition hover:scale-[1.02] cursor-pointer"
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#F2412C] hover:bg-[#d4321e] text-white text-xs font-black shadow-md shadow-[#F2412C]/20 transition cursor-pointer"
               >
                 <span>Siguiente</span>
                 <ArrowRight className="w-4 h-4" />
@@ -998,7 +1044,7 @@ export default function CourseFormWizard({
                 type="button"
                 onClick={() => handleSubmit()}
                 disabled={isSubmitting}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#F2412C] hover:bg-[#D93522] text-white text-xs font-bold shadow-md shadow-[#F2412C]/20 transition hover:scale-[1.02] disabled:opacity-50 cursor-pointer"
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#F2412C] hover:bg-[#d4321e] text-white text-xs font-black shadow-md shadow-[#F2412C]/20 transition disabled:opacity-50 cursor-pointer"
               >
                 {isSubmitting ? (
                   <>
@@ -1009,7 +1055,7 @@ export default function CourseFormWizard({
                   <>
                     <CheckCircle2 className="w-4 h-4" />
                     <span>
-                      {isEditMode ? 'Guardar Cambios' : 'Guardar como Borrador'}
+                      {isEditMode ? 'Guardar Cambios' : 'Crear Curso'}
                     </span>
                   </>
                 )}
@@ -1021,4 +1067,3 @@ export default function CourseFormWizard({
     </div>
   );
 }
-
