@@ -12,10 +12,14 @@ export const envSchema = z.object({
   DB_NAME: z.string().default('plataforma_cursos'),
   DATABASE_URL: z.string().optional(),
 
-  SESSION_SECRET: z.string().min(16),
+  // SESSION_SECRET y CSRF_SECRET se reservan para firma HMAC futura de tokens.
+  // Actualmente no se consumen en código (sesiones usan hashes SHA-256 en DB;
+  // CSRF usa tokens aleatorios almacenados en DB). Se declaran opcionales para
+  // no romper deploys existentes.
+  SESSION_SECRET: z.string().min(16).optional(),
   SESSION_COOKIE_NAME: z.string().default('sid'),
   SESSION_MAX_AGE_DAYS: z.coerce.number().default(30),
-  CSRF_SECRET: z.string().min(16),
+  CSRF_SECRET: z.string().min(16).optional(),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

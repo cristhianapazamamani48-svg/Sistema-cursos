@@ -23,11 +23,6 @@ export const databaseProviders: Provider[] = [
         connectionString,
       });
 
-      // Asegurar columna category si ya existe la tabla courses
-      pool
-        .query('ALTER TABLE courses ADD COLUMN IF NOT EXISTS category text;')
-        .catch(() => {});
-
       // Asegurar duration_seconds nullable y check para videos pendientes
       pool
         .query(`
@@ -43,7 +38,7 @@ export const databaseProviders: Provider[] = [
             END IF;
           END $$;
         `)
-        .catch(() => {});
+        .catch(() => { });
 
       return pool;
     },

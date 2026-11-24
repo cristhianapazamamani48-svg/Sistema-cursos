@@ -39,6 +39,10 @@ export class AdminService {
           FROM enrollments e
           WHERE e.status IN ('active', 'completed')
         ) AS "enrolledStudentsCount",
+        (
+          SELECT COUNT(*)::int
+          FROM users
+        ) AS "totalUsersCount",
         COALESCE(
           (
             SELECT SUM(CAST(o.amount AS numeric))
@@ -59,6 +63,7 @@ export class AdminService {
       pendingPaymentsCount: Number(row.pendingPaymentsCount) || 0,
       pendingVideosCount: Number(row.pendingVideosCount) || 0,
       enrolledStudentsCount: Number(row.enrolledStudentsCount) || 0,
+      totalUsersCount: Number(row.totalUsersCount) || 0,
       monthlyRevenueBob: Number(row.monthlyRevenueBob) || 0,
     };
   }

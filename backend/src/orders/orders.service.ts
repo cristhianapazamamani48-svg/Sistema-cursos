@@ -287,7 +287,7 @@ export class OrdersService {
       const order = orderRes.rows[0];
 
       await client.query(
-        `UPDATE orders SET status = 'paid', updated_at = now() WHERE id = $1;`,
+        `UPDATE orders SET status = 'paid', confirmed_at = now(), updated_at = now() WHERE id = $1;`,
         [dto.orderId],
       );
 

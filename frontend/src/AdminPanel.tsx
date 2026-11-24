@@ -28,6 +28,7 @@ interface AdminSummary {
   pendingPaymentsCount: number;
   pendingVideosCount: number;
   enrolledStudentsCount: number;
+  totalUsersCount: number;
   monthlyRevenueBob: number;
 }
 
@@ -373,7 +374,7 @@ export default function AdminPanel({ onClose, initialTab }: AdminPanelProps) {
     },
     {
       key: 'students', label: 'Usuarios del Sistema',
-      value: summary?.enrolledStudentsCount ?? '—', icon: Users,
+      value: summary?.totalUsersCount ?? '—', icon: Users,
       tab: 'users' as const, bg: 'bg-emerald-50', border: 'border-emerald-200', iconColor: 'text-emerald-700',
     },
     {
