@@ -36,6 +36,7 @@ import CertificateModal from './CertificateModal';
 import VerifyCertificateModal from './VerifyCertificateModal';
 import UnitClassroomView from './UnitClassroomView';
 import StudentGradesView from './StudentGradesView';
+import StudentCertificatesView from './StudentCertificatesView';
 import { api, setCsrfToken as setGlobalCsrfToken, setOnUnauthorized } from './api';
 
 interface User {
@@ -279,7 +280,14 @@ export default function App() {
       }
     } else {
       // Estudiante
-      const allowedStudentTabs: AppTab[] = ['my-courses', 'my-orders', 'catalog', 'course-detail', 'classroom'];
+      const allowedStudentTabs: AppTab[] = [
+        'my-courses',
+        'my-certificates',
+        'my-orders',
+        'catalog',
+        'course-detail',
+        'classroom',
+      ];
       if (!allowedStudentTabs.includes(activeTab)) {
         setActiveTab('my-courses');
       }
@@ -1379,6 +1387,22 @@ export default function App() {
 
             {renderEnrolledCourseCards(myCourses)}
           </div>
+        )}
+
+        {/* VISTA: MIS CERTIFICADOS (ESTUDIANTE) */}
+        {activeTab === 'my-certificates' && currentUser && (currentUser.role === 'estudiante' || currentUser.role === 'student') && (
+          <StudentCertificatesView
+            onOpenCertificateModal={(enrollmentId) => {
+              setSelectedCertificateEnrollmentId(enrollmentId);
+              setIsCertificateModalOpen(true);
+            }}
+            onOpenVerifyModal={(code) => {
+              setVerifyCertificateCode(code);
+              setIsVerifyModalOpen(true);
+            }}
+            onNavigateToCourses={() => setActiveTab('my-courses')}
+            showToast={showToast}
+          />
         )}
 
         {/* VISTA: MIS PAGOS (ESTUDIANTE) */}

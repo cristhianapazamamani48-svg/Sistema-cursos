@@ -19,6 +19,7 @@ export type AppTab =
   | 'catalog'
   | 'course-detail'
   | 'my-courses'
+  | 'my-certificates'
   | 'my-orders'
   | 'teacher-courses'
   | 'create-course'
@@ -124,6 +125,16 @@ export default function Sidebar({
         isActive: activeTab === 'my-courses',
         onClick: () => {
           onNavigate('my-courses');
+          onCloseMobile();
+        },
+      },
+      {
+        id: 'my-certificates',
+        label: 'Mis Certificados',
+        icon: Award,
+        isActive: activeTab === 'my-certificates',
+        onClick: () => {
+          onNavigate('my-certificates');
           onCloseMobile();
         },
       },

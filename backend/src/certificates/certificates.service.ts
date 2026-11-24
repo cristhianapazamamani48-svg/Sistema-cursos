@@ -181,7 +181,7 @@ export class CertificatesService {
   }
 
   /**
-   * Listar todos los certificados del estudiante autenticado
+   * Listar todos los certificados del estudiante autenticado y cursos listos para certificar
    */
   async getMyCertificates(userId: number) {
     const res = await this.pool.query(
@@ -196,7 +196,22 @@ export class CertificatesService {
       [userId],
     );
 
-    return res.rows;
+    // Cursos completados del usuario que aún no hayan emitido su certificado
+    const claimableRes = await this.pool.query(
+      `SELECT e.id as "enrollmentId", e.course_id as "courseId", e.completed_at as "completedAt",
+              c.title as "courseTitle", c.slug as "courseSlug", c.thumbnail_url as "thumbnailUrl"
+       FROM enrollments e
+       JOIN courses c ON c.id = e.course_id
+       LEFT JOIN certificates cert ON cert.enrollment_id = e.id
+       WHERE e.user_id = $1 AND e.status = 'completed' AND cert.id IS NULL
+       ORDER BY e.completed_at DESC;`,
+      [userId],
+    );
+
+    return {
+      certificates: res.rows,
+      claimable: claimableRes.rows,
+    };
   }
 
   /**
