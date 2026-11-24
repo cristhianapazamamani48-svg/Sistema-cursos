@@ -102,8 +102,11 @@ export class CoursesController {
   @Get(':id/publish-checklist')
   @UseGuards(SessionGuard, RolesGuard)
   @Roles('admin', 'superadmin', 'docente')
-  async getPublishChecklist(@Param('id', ParseIntPipe) id: number) {
-    return this.coursesService.getPublishChecklist(id);
+  async getPublishChecklist(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: User,
+  ) {
+    return this.coursesService.getPublishChecklist(id, user);
   }
 
   @Patch(':id')
@@ -147,6 +150,7 @@ export class CoursesController {
   async createModule(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: unknown,
+    @CurrentUser() user: User,
   ) {
     const parseResult = createModuleSchema.safeParse(body);
     if (!parseResult.success) {
@@ -155,14 +159,17 @@ export class CoursesController {
         errors: parseResult.error.format(),
       });
     }
-    return this.coursesService.createModule(id, parseResult.data);
+    return this.coursesService.createModule(id, parseResult.data, user);
   }
 
   @Get(':id/curriculum')
   @UseGuards(SessionGuard, RolesGuard)
   @Roles('admin', 'superadmin', 'docente')
-  async getCourseCurriculum(@Param('id', ParseIntPipe) id: number) {
-    return this.coursesService.getCourseCurriculum(id);
+  async getCourseCurriculum(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: User,
+  ) {
+    return this.coursesService.getCourseCurriculum(id, user);
   }
 
   @Patch('modules/:moduleId')
@@ -171,6 +178,7 @@ export class CoursesController {
   async updateModule(
     @Param('moduleId', ParseIntPipe) moduleId: number,
     @Body() body: unknown,
+    @CurrentUser() user: User,
   ) {
     const parseResult = updateModuleSchema.safeParse(body);
     if (!parseResult.success) {
@@ -179,14 +187,17 @@ export class CoursesController {
         errors: parseResult.error.format(),
       });
     }
-    return this.coursesService.updateModule(moduleId, parseResult.data);
+    return this.coursesService.updateModule(moduleId, parseResult.data, user);
   }
 
   @Delete('modules/:moduleId')
   @UseGuards(SessionGuard, RolesGuard)
   @Roles('admin', 'superadmin', 'docente')
-  async deleteModule(@Param('moduleId', ParseIntPipe) moduleId: number) {
-    return this.coursesService.deleteModule(moduleId);
+  async deleteModule(
+    @Param('moduleId', ParseIntPipe) moduleId: number,
+    @CurrentUser() user: User,
+  ) {
+    return this.coursesService.deleteModule(moduleId, user);
   }
 
   @Post(':id/modules/reorder')
@@ -195,6 +206,7 @@ export class CoursesController {
   async reorderModules(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: unknown,
+    @CurrentUser() user: User,
   ) {
     const parseResult = reorderModulesSchema.safeParse(body);
     if (!parseResult.success) {
@@ -203,6 +215,6 @@ export class CoursesController {
         errors: parseResult.error.format(),
       });
     }
-    return this.coursesService.reorderModules(id, parseResult.data.moduleIds);
+    return this.coursesService.reorderModules(id, parseResult.data.moduleIds, user);
   }
 }

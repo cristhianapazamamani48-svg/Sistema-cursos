@@ -34,6 +34,52 @@ export class CoursesService {
     @Inject(PG_POOL) private readonly pool: Pool,
     @Inject(DRIZZLE_DB) private readonly db: DrizzleDb,
   ) {}
+  // ─────────────────────────────────────────────────────────────
+  // Helper: verifica propiedad de un curso.
+  // Admins/superadmins siempre pasan; docentes deben ser creador o asignados.
+  // ─────────────────────────────────────────────────────────────
+  private async assertCourseOwner(courseId: number, user: User): Promise<void> {
+    if (user.role === 'admin' || user.role === 'superadmin') return;
+
+    const [course] = await this.db
+      .select({ createdBy: courses.createdBy })
+      .from(courses)
+      .where(eq(courses.id, courseId))
+      .limit(1);
+
+    if (!course) {
+      throw new NotFoundException(`Curso #${courseId} no encontrado`);
+    }
+
+    if (course.createdBy === user.id) return;
+
+    const [assigned] = await this.db
+      .select({ id: courseDocentes.id })
+      .from(courseDocentes)
+      .where(and(eq(courseDocentes.courseId, courseId), eq(courseDocentes.userId, user.id)))
+      .limit(1);
+
+    if (!assigned) {
+      throw new ForbiddenException('No tienes permiso para modificar este curso');
+    }
+  }
+
+  // Helper: dado un moduleId resuelve courseId y verifica propiedad.
+  private async assertModuleOwner(moduleId: number, user: User): Promise<number> {
+    const [mod] = await this.db
+      .select({ id: modules.id, courseId: modules.courseId })
+      .from(modules)
+      .where(eq(modules.id, moduleId))
+      .limit(1);
+
+    if (!mod) {
+      throw new NotFoundException(`Módulo #${moduleId} no encontrado`);
+    }
+
+    await this.assertCourseOwner(mod.courseId, user);
+    return mod.courseId;
+  }
+
 
   /**
    * Listar cursos públicos o todos (según rol)
@@ -300,6 +346,16 @@ export class CoursesService {
       }
     }
 
+    // Si se intenta publicar, validar checklist en el backend
+    if (dto.status === 'published' && existing.status !== 'published') {
+      const checklist = await this.getPublishChecklist(id, user!);
+      if (!checklist.canPublish) {
+        throw new BadRequestException(
+          'El curso no cumple los requisitos para publicarse. Revisa el checklist.',
+        );
+      }
+    }
+
     if (dto.slug && dto.slug !== existing.slug) {
       const slugExists = await this.db
         .select({ id: courses.id })
@@ -352,11 +408,8 @@ export class CoursesService {
   /**
    * Crear módulo para un curso
    */
-  async createModule(courseId: number, dto: CreateModuleDto) {
-    const [course] = await this.db.select().from(courses).where(eq(courses.id, courseId)).limit(1);
-    if (!course) {
-      throw new NotFoundException(`Curso #${courseId} no encontrado`);
-    }
+  async createModule(courseId: number, dto: CreateModuleDto, user: User) {
+    await this.assertCourseOwner(courseId, user);
 
     const [newModule] = await this.db
       .insert(modules)
@@ -374,7 +427,7 @@ export class CoursesService {
   /**
    * Obtener temario completo del curso para constructor y edición
    */
-  async getCourseCurriculum(courseId: number) {
+  async getCourseCurriculum(courseId: number, user: User) {
     const [course] = await this.db
       .select()
       .from(courses)
@@ -384,6 +437,8 @@ export class CoursesService {
     if (!course) {
       throw new NotFoundException(`Curso #${courseId} no encontrado`);
     }
+
+    await this.assertCourseOwner(courseId, user);
 
     const courseModules = await this.db
       .select()
@@ -448,7 +503,8 @@ export class CoursesService {
   /**
    * Actualizar módulo
    */
-  async updateModule(moduleId: number, dto: UpdateModuleDto) {
+  async updateModule(moduleId: number, dto: UpdateModuleDto, user: User) {
+    await this.assertModuleOwner(moduleId, user);
     const [mod] = await this.db.select().from(modules).where(eq(modules.id, moduleId)).limit(1);
     if (!mod) {
       throw new NotFoundException(`Módulo #${moduleId} no encontrado`);
@@ -469,7 +525,8 @@ export class CoursesService {
   /**
    * Eliminar suavemente un módulo y sus lecciones
    */
-  async deleteModule(moduleId: number) {
+  async deleteModule(moduleId: number, user: User) {
+    await this.assertModuleOwner(moduleId, user);
     const [mod] = await this.db.select().from(modules).where(eq(modules.id, moduleId)).limit(1);
     if (!mod) {
       throw new NotFoundException(`Módulo #${moduleId} no encontrado`);
@@ -493,7 +550,8 @@ export class CoursesService {
   /**
    * Reordenar módulos de un curso
    */
-  async reorderModules(courseId: number, moduleIds: number[]) {
+  async reorderModules(courseId: number, moduleIds: number[], user: User) {
+    await this.assertCourseOwner(courseId, user);
     for (let i = 0; i < moduleIds.length; i++) {
       await this.db
         .update(modules)
@@ -739,11 +797,13 @@ export class CoursesService {
    * 3. Al menos 1 módulo no eliminado
    * 4. Cada lección no eliminada debe tener un video asociado con status = 'approved'
    */
-  async getPublishChecklist(courseId: number) {
+  async getPublishChecklist(courseId: number, user: User) {
     const [course] = await this.db.select().from(courses).where(eq(courses.id, courseId)).limit(1);
     if (!course) {
       throw new NotFoundException(`Curso #${courseId} no encontrado`);
     }
+
+    await this.assertCourseOwner(courseId, user);
 
     // 1. Título
     const hasTitle = Boolean(course.title && course.title.trim().length >= 3);

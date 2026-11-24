@@ -5,8 +5,9 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
+import { Pool } from 'pg';
 import { eq, and, isNull } from 'drizzle-orm';
-import { DRIZZLE_DB, DrizzleDb } from '../database/database.provider';
+import { DRIZZLE_DB, PG_POOL, DrizzleDb } from '../database/database.provider';
 import { lessons, resources } from '../database/schema/lessons.schema';
 import { videos } from '../database/schema/videos.schema';
 import { modules } from '../database/schema/courses.schema';
@@ -23,7 +24,110 @@ import {
 
 @Injectable()
 export class LessonsService {
-  constructor(@Inject(DRIZZLE_DB) private readonly db: DrizzleDb) {}
+  constructor(
+    @Inject(PG_POOL) private readonly pool: Pool,
+    @Inject(DRIZZLE_DB) private readonly db: DrizzleDb,
+  ) {}
+
+  /**
+   * Helper: verifica que el usuario tenga permiso para editar el curso del módulo.
+   * Admins y superadmins siempre pasan.
+   * Docentes deben ser creadores del curso o estar en course_docentes.
+   */
+  private async assertModuleCourseOwner(moduleId: number, user: User): Promise<number> {
+    if (user.role === 'admin' || user.role === 'superadmin') {
+      const [mod] = await this.db
+        .select({ id: modules.id, courseId: modules.courseId })
+        .from(modules)
+        .where(eq(modules.id, moduleId))
+        .limit(1);
+      if (!mod) {
+        throw new NotFoundException(`Módulo #${moduleId} no encontrado`);
+      }
+      return mod.courseId;
+    }
+
+    const query = `
+      SELECT m.id, m.course_id as "courseId", c.created_by as "createdBy"
+      FROM modules m
+      JOIN courses c ON c.id = m.course_id
+      WHERE m.id = $1
+      LIMIT 1;
+    `;
+    const res = await this.pool.query(query, [moduleId]);
+    if (res.rowCount === 0) {
+      throw new NotFoundException(`Módulo #${moduleId} no encontrado`);
+    }
+
+    const row = res.rows[0];
+    const courseId = Number(row.courseId);
+    const createdBy = Number(row.createdBy);
+
+    if (createdBy === user.id) {
+      return courseId;
+    }
+
+    const assignedRes = await this.pool.query(
+      `SELECT id FROM course_docentes WHERE course_id = $1 AND user_id = $2 LIMIT 1;`,
+      [courseId, user.id],
+    );
+
+    if (assignedRes.rowCount === 0) {
+      throw new ForbiddenException('No tienes permiso para modificar contenidos de este curso');
+    }
+
+    return courseId;
+  }
+
+  /**
+   * Helper: verifica que el usuario tenga permiso para editar el curso de la lección.
+   */
+  private async assertLessonCourseOwner(lessonId: number, user: User): Promise<{ courseId: number; moduleId: number }> {
+    if (user.role === 'admin' || user.role === 'superadmin') {
+      const [lesson] = await this.db
+        .select({ id: lessons.id, moduleId: lessons.moduleId })
+        .from(lessons)
+        .where(eq(lessons.id, lessonId))
+        .limit(1);
+      if (!lesson) {
+        throw new NotFoundException(`Lección #${lessonId} no encontrada`);
+      }
+      return { courseId: 0, moduleId: lesson.moduleId };
+    }
+
+    const query = `
+      SELECT l.id, l.module_id as "moduleId", m.course_id as "courseId", c.created_by as "createdBy"
+      FROM lessons l
+      JOIN modules m ON m.id = l.module_id
+      JOIN courses c ON c.id = m.course_id
+      WHERE l.id = $1
+      LIMIT 1;
+    `;
+    const res = await this.pool.query(query, [lessonId]);
+    if (res.rowCount === 0) {
+      throw new NotFoundException(`Lección #${lessonId} no encontrada`);
+    }
+
+    const row = res.rows[0];
+    const courseId = Number(row.courseId);
+    const moduleId = Number(row.moduleId);
+    const createdBy = Number(row.createdBy);
+
+    if (createdBy === user.id) {
+      return { courseId, moduleId };
+    }
+
+    const assignedRes = await this.pool.query(
+      `SELECT id FROM course_docentes WHERE course_id = $1 AND user_id = $2 LIMIT 1;`,
+      [courseId, user.id],
+    );
+
+    if (assignedRes.rowCount === 0) {
+      throw new ForbiddenException('No tienes permiso para modificar contenidos de este curso');
+    }
+
+    return { courseId, moduleId };
+  }
 
   /**
    * Registro de un video por un docente (inicia en status 'pending')
@@ -99,11 +203,8 @@ export class LessonsService {
    * Crear una lección
    * Regla de negocio: si status = 'published', exige video_id y que el video esté 'approved'
    */
-  async createLesson(dto: CreateLessonDto) {
-    const [mod] = await this.db.select().from(modules).where(eq(modules.id, dto.moduleId)).limit(1);
-    if (!mod) {
-      throw new NotFoundException(`Módulo #${dto.moduleId} no encontrado`);
-    }
+  async createLesson(dto: CreateLessonDto, user: User) {
+    await this.assertModuleCourseOwner(dto.moduleId, user);
 
     if (dto.status === 'published') {
       if (!dto.videoId) {
@@ -134,7 +235,12 @@ export class LessonsService {
    * Actualizar una lección
    * Regla de negocio: validar video approved al publicar
    */
-  async updateLesson(lessonId: number, dto: UpdateLessonDto) {
+  async updateLesson(lessonId: number, dto: UpdateLessonDto, user: User) {
+    await this.assertLessonCourseOwner(lessonId, user);
+    if (dto.moduleId !== undefined) {
+      await this.assertModuleCourseOwner(dto.moduleId, user);
+    }
+
     const [lesson] = await this.db.select().from(lessons).where(eq(lessons.id, lessonId)).limit(1);
     if (!lesson) {
       throw new NotFoundException(`Lección #${lessonId} no encontrada`);
@@ -168,7 +274,9 @@ export class LessonsService {
   /**
    * Eliminar suavemente una lección
    */
-  async deleteLesson(lessonId: number) {
+  async deleteLesson(lessonId: number, user: User) {
+    await this.assertLessonCourseOwner(lessonId, user);
+
     const [lesson] = await this.db.select().from(lessons).where(eq(lessons.id, lessonId)).limit(1);
     if (!lesson) {
       throw new NotFoundException(`Lección #${lessonId} no encontrada`);
@@ -189,7 +297,9 @@ export class LessonsService {
   /**
    * Reordenar lecciones de un módulo
    */
-  async reorderLessons(moduleId: number, lessonIds: number[]) {
+  async reorderLessons(moduleId: number, lessonIds: number[], user: User) {
+    await this.assertModuleCourseOwner(moduleId, user);
+
     for (let i = 0; i < lessonIds.length; i++) {
       await this.db
         .update(lessons)
@@ -264,7 +374,9 @@ export class LessonsService {
   /**
    * Agregar recurso a una lección
    */
-  async addResource(lessonId: number, dto: CreateResourceDto) {
+  async addResource(lessonId: number, dto: CreateResourceDto, user: User) {
+    await this.assertLessonCourseOwner(lessonId, user);
+
     const [lesson] = await this.db.select().from(lessons).where(eq(lessons.id, lessonId)).limit(1);
     if (!lesson) {
       throw new NotFoundException(`Lección #${lessonId} no encontrada`);

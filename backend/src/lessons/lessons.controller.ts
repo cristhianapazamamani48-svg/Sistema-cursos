@@ -86,7 +86,10 @@ export class LessonsController {
   @Post('lessons')
   @UseGuards(SessionGuard, RolesGuard)
   @Roles('admin', 'superadmin', 'docente')
-  async createLesson(@Body() body: unknown) {
+  async createLesson(
+    @Body() body: unknown,
+    @CurrentUser() user: User,
+  ) {
     const parseResult = createLessonSchema.safeParse(body);
     if (!parseResult.success) {
       throw new BadRequestException({
@@ -94,7 +97,7 @@ export class LessonsController {
         errors: parseResult.error.format(),
       });
     }
-    return this.lessonsService.createLesson(parseResult.data);
+    return this.lessonsService.createLesson(parseResult.data, user);
   }
 
   @Patch('lessons/:id')
@@ -103,6 +106,7 @@ export class LessonsController {
   async updateLesson(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: unknown,
+    @CurrentUser() user: User,
   ) {
     const parseResult = updateLessonSchema.safeParse(body);
     if (!parseResult.success) {
@@ -111,14 +115,17 @@ export class LessonsController {
         errors: parseResult.error.format(),
       });
     }
-    return this.lessonsService.updateLesson(id, parseResult.data);
+    return this.lessonsService.updateLesson(id, parseResult.data, user);
   }
 
   @Delete('lessons/:id')
   @UseGuards(SessionGuard, RolesGuard)
   @Roles('admin', 'superadmin', 'docente')
-  async deleteLesson(@Param('id', ParseIntPipe) id: number) {
-    return this.lessonsService.deleteLesson(id);
+  async deleteLesson(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: User,
+  ) {
+    return this.lessonsService.deleteLesson(id, user);
   }
 
   @Post('lessons/modules/:moduleId/reorder')
@@ -127,6 +134,7 @@ export class LessonsController {
   async reorderLessons(
     @Param('moduleId', ParseIntPipe) moduleId: number,
     @Body() body: unknown,
+    @CurrentUser() user: User,
   ) {
     const parseResult = reorderLessonsSchema.safeParse(body);
     if (!parseResult.success) {
@@ -135,7 +143,7 @@ export class LessonsController {
         errors: parseResult.error.format(),
       });
     }
-    return this.lessonsService.reorderLessons(moduleId, parseResult.data.lessonIds);
+    return this.lessonsService.reorderLessons(moduleId, parseResult.data.lessonIds, user);
   }
 
   // 3. RECURSOS
@@ -145,6 +153,7 @@ export class LessonsController {
   async addResource(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: unknown,
+    @CurrentUser() user: User,
   ) {
     const parseResult = createResourceSchema.safeParse(body);
     if (!parseResult.success) {
@@ -153,6 +162,6 @@ export class LessonsController {
         errors: parseResult.error.format(),
       });
     }
-    return this.lessonsService.addResource(id, parseResult.data);
+    return this.lessonsService.addResource(id, parseResult.data, user);
   }
 }
