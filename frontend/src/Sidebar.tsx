@@ -11,6 +11,7 @@ import {
   LogOut,
   LogIn,
   GraduationCap,
+  Award,
   X,
 } from 'lucide-react';
 
@@ -43,6 +44,7 @@ export interface SidebarProps {
   onLogout: () => void;
   isOpenMobile: boolean;
   onCloseMobile: () => void;
+  onOpenVerify?: () => void;
 }
 
 export default function Sidebar({
@@ -57,6 +59,7 @@ export default function Sidebar({
   onLogout,
   isOpenMobile,
   onCloseMobile,
+  onOpenVerify,
 }: SidebarProps) {
   const role = currentUser?.role;
   const isEstudiante = role === 'estudiante' || role === 'student';
@@ -293,6 +296,21 @@ export default function Sidebar({
             </button>
           );
         })}
+
+        {onOpenVerify && (
+          <div className="pt-2 border-t border-[#363940]/50 mt-2">
+            <button
+              onClick={() => {
+                onOpenVerify();
+                onCloseMobile();
+              }}
+              className="w-full flex items-center gap-3.5 px-3.5 py-2.5 rounded-2xl text-xs font-bold transition text-[#9EA3AC] hover:text-white hover:bg-[#363940] cursor-pointer text-left"
+            >
+              <Award className="w-4 h-4 text-amber-500 shrink-0" />
+              <span className="truncate">Validar Certificado</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 3. PIE DEL SIDEBAR: USUARIO / CERRAR SESIÓN / INICIAR SESIÓN */}

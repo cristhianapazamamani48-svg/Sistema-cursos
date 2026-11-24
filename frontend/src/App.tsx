@@ -32,6 +32,8 @@ import Sidebar, { type AppTab, type AdminSubTab } from './Sidebar';
 import AdminPanel from './AdminPanel';
 import YouTubeTracker from './YouTubeTracker';
 import TeacherCoursesView from './TeacherCoursesView';
+import CertificateModal from './CertificateModal';
+import VerifyCertificateModal from './VerifyCertificateModal';
 import { api, setCsrfToken as setGlobalCsrfToken, setOnUnauthorized } from './api';
 
 interface User {
@@ -177,6 +179,22 @@ export default function App() {
   // Estado para Login a Pantalla Completa (Tarea A: cerrar sesión real)
   const [isFullScreenLogin, setIsFullScreenLogin] = useState(false);
   const [sessionNotice, setSessionNotice] = useState<string | null>(null);
+
+  // Certificados oficiales y validación pública
+  const [selectedCertificateEnrollmentId, setSelectedCertificateEnrollmentId] = useState<number | null>(null);
+  const [isCertificateModalOpen, setIsCertificateModalOpen] = useState(false);
+  const [verifyCertificateCode, setVerifyCertificateCode] = useState<string | null>(null);
+  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
+
+  // Capturar parámetro ?verify=CODE en la URL al cargar
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const verify = params.get('verify');
+    if (verify) {
+      setVerifyCertificateCode(verify);
+      setIsVerifyModalOpen(true);
+    }
+  }, []);
 
   // Limpiar completamente todo el estado de la sesión anterior
   const purgeAllSessionState = () => {
@@ -688,13 +706,30 @@ export default function App() {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => enterClassroom(c.slug, c.resumeLessonId)}
-                  className="w-full bg-[#F2412C] hover:bg-[#D93522] text-white text-xs font-bold py-3 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-md shadow-[#F2412C]/20 cursor-pointer"
-                >
-                  <Play className="w-3.5 h-3.5 fill-current" />
-                  <span>Continuar donde lo dejé</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => enterClassroom(c.slug, c.resumeLessonId)}
+                    className="flex-1 bg-[#F2412C] hover:bg-[#D93522] text-white text-xs font-bold py-3 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-md shadow-[#F2412C]/20 cursor-pointer"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <span>{isCompleted ? 'Repasar Curso' : 'Continuar donde lo dejé'}</span>
+                  </button>
+                  {isCompleted && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedCertificateEnrollmentId(c.enrollmentId);
+                        setIsCertificateModalOpen(true);
+                      }}
+                      className="px-3.5 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black transition flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20 cursor-pointer shrink-0"
+                      title="Ver Certificado Oficial"
+                    >
+                      <Award className="w-4 h-4" />
+                      <span className="hidden sm:inline">Certificado</span>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           );
@@ -945,6 +980,7 @@ export default function App() {
         onLogout={handleLogout}
         isOpenMobile={isMobileMenuOpen}
         onCloseMobile={() => setIsMobileMenuOpen(false)}
+        onOpenVerify={() => setIsVerifyModalOpen(true)}
       />
 
       {/* Contenedor Principal (con padding izquierdo en Desktop para el Sidebar) */}
@@ -1558,17 +1594,17 @@ export default function App() {
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
-                        {import.meta.env.DEV && (
-                          <a
-                            href="/certificado-demo"
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-emerald-300 hover:bg-emerald-50 text-emerald-900 text-xs font-black shadow-xs transition cursor-pointer"
-                          >
-                            <Award className="w-4 h-4 text-[#F2412C]" />
-                            Formato Demo
-                          </a>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCertificateEnrollmentId(classroomData.enrollment.id);
+                            setIsCertificateModalOpen(true);
+                          }}
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-black shadow-md shadow-amber-500/20 transition cursor-pointer"
+                        >
+                          <Award className="w-4 h-4 text-white" />
+                          <span>Obtener Mi Certificado</span>
+                        </button>
                         <span className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black shadow-xs shrink-0">
                           <CheckCircle2 className="w-4 h-4" />
                           Aprobado
@@ -2028,6 +2064,33 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Modal de Certificado Oficial (Estudiante) */}
+      <CertificateModal
+        isOpen={isCertificateModalOpen}
+        onClose={() => {
+          setIsCertificateModalOpen(false);
+          setSelectedCertificateEnrollmentId(null);
+        }}
+        enrollmentId={selectedCertificateEnrollmentId}
+        onOpenVerify={(certCode) => {
+          setVerifyCertificateCode(certCode);
+          setIsVerifyModalOpen(true);
+        }}
+      />
+
+      {/* Modal de Verificación Pública de Certificados */}
+      <VerifyCertificateModal
+        isOpen={isVerifyModalOpen}
+        onClose={() => {
+          setIsVerifyModalOpen(false);
+          setVerifyCertificateCode(null);
+        }}
+        initialCode={verifyCertificateCode}
+        onViewCourse={(slug) => {
+          loadCourseDetail(slug);
+        }}
+      />
     </div>
   );
 }

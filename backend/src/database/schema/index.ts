@@ -6,3 +6,4 @@ export * from './orders.schema';
 export * from './enrollments.schema';
 export * from './lesson-progress.schema';
 export * from './audit-logs.schema';
+export * from './certificates.schema';

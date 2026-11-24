@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Printer, ArrowLeft, Award, CheckCircle2, QrCode } from 'lucide-react';
 
 interface CertData {
@@ -51,7 +51,40 @@ const DEMO_PRESETS: CertData[] = [
 
 export default function CertificadoDemo() {
   const [selectedPresetIndex, setSelectedPresetIndex] = useState(0);
-  const data = DEMO_PRESETS[selectedPresetIndex];
+  const [liveCert, setLiveCert] = useState<any>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code') || params.get('verify');
+    if (code) {
+      fetch(`/api/certificates/verify/${encodeURIComponent(code)}`)
+        .then((r) => r.json())
+        .then((res) => {
+          if (res.valid && res.certificate) {
+            setLiveCert(res.certificate);
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
+
+  const data: CertData = liveCert
+    ? {
+        studentName: liveCert.studentName,
+        courseName: liveCert.courseTitle,
+        teacherName: 'Consejo Académico',
+        teacherTitle: 'Dirección de Formación Continua',
+        completionDate: new Date(liveCert.issuedAt).toLocaleDateString('es-ES', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        }),
+        hoursCount: Number(liveCert.workloadHours) || 40,
+        verificationCode: liveCert.code,
+        institutionName: 'EducaSuite 360',
+        cityCountry: 'La Paz, Bolivia',
+      }
+    : DEMO_PRESETS[selectedPresetIndex];
 
   const handlePrint = () => {
     window.print();
@@ -131,22 +164,29 @@ export default function CertificadoDemo() {
             </div>
           </div>
 
-          {/* Selector de ejemplos + Botón imprimir */}
+          {/* Selector de ejemplos o Badge de Verificación Oficial + Botón imprimir */}
           <div className="flex items-center gap-3 w-full md:w-auto justify-end flex-wrap">
-            <div className="flex items-center gap-2 bg-[#1A1C20] px-3 py-1.5 rounded-xl border border-[#40444B]">
-              <span className="text-[11px] font-semibold text-[#9EA3AC] hidden sm:inline">Ejemplo:</span>
-              <select
-                value={selectedPresetIndex}
-                onChange={(e) => setSelectedPresetIndex(Number(e.target.value))}
-                className="bg-transparent text-white text-xs font-bold outline-none cursor-pointer"
-              >
-                {DEMO_PRESETS.map((p, idx) => (
-                  <option key={p.verificationCode} value={idx} className="bg-[#2B2D33] text-white">
-                    {p.studentName} — {p.courseName.slice(0, 24)}...
-                  </option>
-                ))}
-              </select>
-            </div>
+            {liveCert ? (
+              <div className="flex items-center gap-2 bg-emerald-950/80 px-3.5 py-1.5 rounded-xl border border-emerald-500/50 text-emerald-300 text-xs font-bold">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>Registro Oficial Verificado: {liveCert.code}</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 bg-[#1A1C20] px-3 py-1.5 rounded-xl border border-[#40444B]">
+                <span className="text-[11px] font-semibold text-[#9EA3AC] hidden sm:inline">Ejemplo:</span>
+                <select
+                  value={selectedPresetIndex}
+                  onChange={(e) => setSelectedPresetIndex(Number(e.target.value))}
+                  className="bg-transparent text-white text-xs font-bold outline-none cursor-pointer"
+                >
+                  {DEMO_PRESETS.map((p, idx) => (
+                    <option key={p.verificationCode} value={idx} className="bg-[#2B2D33] text-white">
+                      {p.studentName} — {p.courseName.slice(0, 24)}...
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <button
               onClick={handlePrint}
