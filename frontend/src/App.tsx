@@ -1890,14 +1890,36 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* Componentes Pedagógicos de la Unidad (Estudio, Complementario, Actividades, Foro, Evaluación) */}
-                    <UnitClassroomView
-                      lesson={selectedLesson}
-                      courseSlug={classroomData.course.slug}
-                      minWatchPercentage={classroomData.course.minWatchPercentage}
-                      onRefreshClassroom={() => enterClassroom(classroomData.course.slug)}
-                      showToast={showToast}
-                    />
+                    {/* Reproductor de Video de la Lección (en la parte superior) */}
+                    {selectedLesson.video?.providerRef ? (
+                      <YouTubeTracker
+                        videoId={selectedLesson.video.providerRef}
+                        lessonId={selectedLesson.id}
+                        minWatchPercentage={classroomData.course.minWatchPercentage}
+                        onProgressUpdate={(stats) => {
+                          if (stats.isCompleted) {
+                            showToast('success', '¡Felicitaciones! Has completado esta lección.');
+                            enterClassroom(classroomData.course.slug);
+                          }
+                        }}
+                      />
+                    ) : (
+                      <div className="aspect-video bg-[#2B2D33] rounded-2xl flex flex-col items-center justify-center text-[#E4E6EA] space-y-2">
+                        <FileText className="w-8 h-8 text-white" />
+                        <span className="text-xs">Esta lección no incluye video</span>
+                      </div>
+                    )}
+
+                    {/* Componentes Pedagógicos de la Unidad (al final / en la parte inferior del video) */}
+                    <div className="pt-4 border-t border-[#E4E6EA]">
+                      <UnitClassroomView
+                        lesson={selectedLesson}
+                        courseSlug={classroomData.course.slug}
+                        minWatchPercentage={classroomData.course.minWatchPercentage}
+                        onRefreshClassroom={() => enterClassroom(classroomData.course.slug)}
+                        showToast={showToast}
+                      />
+                    </div>
                   </div>
                 ) : (
                   <div className="bg-white border border-[#D1D5DB] rounded-3xl p-12 text-center text-[#555861] shadow-xs">

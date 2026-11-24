@@ -19,7 +19,6 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { api } from './api';
-import YouTubeTracker from './YouTubeTracker';
 
 export interface ClassroomLessonProps {
   id: number;
@@ -117,8 +116,8 @@ interface UnitQuiz {
 interface UnitClassroomViewProps {
   lesson: ClassroomLessonProps;
   courseSlug: string;
-  minWatchPercentage: number;
-  onRefreshClassroom: () => void;
+  minWatchPercentage?: number;
+  onRefreshClassroom?: () => void;
   showToast: (type: 'success' | 'error' | 'info', text: string) => void;
 }
 
@@ -127,8 +126,6 @@ type PedagogicalTab = 'estudio' | 'complementario' | 'actividad' | 'foro' | 'eva
 export default function UnitClassroomView({
   lesson,
   courseSlug,
-  minWatchPercentage,
-  onRefreshClassroom,
   showToast,
 }: UnitClassroomViewProps) {
   const [activeTab, setActiveTab] = useState<PedagogicalTab>('estudio');
@@ -459,27 +456,6 @@ export default function UnitClassroomView({
               <div className="text-xs text-[#2B2D33] whitespace-pre-wrap leading-relaxed bg-[#F8F9FA] p-4 rounded-xl border border-[#E4E6EA]">
                 {lesson.studyMaterialContent}
               </div>
-            </div>
-          )}
-
-          {/* Reproductor si la unidad contiene video asignado con control de asistencia */}
-          {lesson.video?.providerRef && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-[#2B2D33]">Video de la Unidad (Seguimiento de Asistencia)</span>
-                <span className="text-[#555861] text-[11px]">Mínimo: {minWatchPercentage}%</span>
-              </div>
-              <YouTubeTracker
-                videoId={lesson.video.providerRef}
-                lessonId={lesson.id}
-                minWatchPercentage={minWatchPercentage}
-                onProgressUpdate={(stats) => {
-                  if (stats.isCompleted) {
-                    showToast('success', '¡Felicitaciones! Has completado esta lección.');
-                    onRefreshClassroom();
-                  }
-                }}
-              />
             </div>
           )}
         </div>
