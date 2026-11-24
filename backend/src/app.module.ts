@@ -22,7 +22,7 @@ const staticModule = frontendExists
   ? [
       ServeStaticModule.forRoot({
         rootPath: FRONTEND_BUILD_PATH,
-        exclude: ['/api/(.*)'],
+        exclude: ['/api{/*splat}'],
       }),
     ]
   : [];

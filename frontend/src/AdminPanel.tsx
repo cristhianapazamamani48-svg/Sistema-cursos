@@ -14,6 +14,7 @@ import {
   Filter,
   AlertCircle,
   User,
+  UserPlus,
   BookOpen,
   FileText,
 } from 'lucide-react';
@@ -139,6 +140,14 @@ export default function AdminPanel({ onClose, initialTab }: AdminPanelProps) {
   const [approvingVideo, setApprovingVideo] = useState<VideoItem | null>(null);
   const [approvalMinutes, setApprovalMinutes] = useState('10');
   const [approvalSeconds, setApprovalSeconds] = useState('0');
+
+  // Gestión de usuarios
+  const [showNewUserModal, setShowNewUserModal] = useState(false);
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [newUserRole, setNewUserRole] = useState<'docente' | 'admin' | 'estudiante'>('docente');
+  const [userActionLoading, setUserActionLoading] = useState(false);
 
   // Órdenes filtradas
   const filteredOrders = useMemo(() => {
@@ -279,6 +288,70 @@ export default function AdminPanel({ onClose, initialTab }: AdminPanelProps) {
       setRejectionReason('');
       fetchData();
       loadSummary();
+    } catch (err: any) {
+      setActionMsg({ type: 'error', text: err.message });
+    }
+  };
+
+  /* ---- Acciones usuarios ------------------------------------------ */
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUserEmail.trim() || !newUserName.trim() || !newUserPassword) return;
+    setUserActionLoading(true);
+    try {
+      const res = await api('/api/admin/users', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: newUserEmail.trim(),
+          fullName: newUserName.trim(),
+          password: newUserPassword,
+          role: newUserRole,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Error al crear usuario');
+      setActionMsg({ type: 'success', text: `Usuario ${data.fullName} (${data.role}) creado exitosamente.` });
+      setShowNewUserModal(false);
+      setNewUserEmail('');
+      setNewUserName('');
+      setNewUserPassword('');
+      setNewUserRole('docente');
+      fetchData();
+    } catch (err: any) {
+      setActionMsg({ type: 'error', text: err.message });
+    } finally {
+      setUserActionLoading(false);
+    }
+  };
+
+  const handleUpdateUserRole = async (userId: number, newRole: string) => {
+    try {
+      const res = await api(`/api/admin/users/${userId}/role`, {
+        method: 'PATCH',
+        body: JSON.stringify({ role: newRole }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Error al cambiar rol');
+      setActionMsg({ type: 'success', text: `Rol actualizado a ${newRole}.` });
+      fetchData();
+    } catch (err: any) {
+      setActionMsg({ type: 'error', text: err.message });
+    }
+  };
+
+  const handleToggleUserStatus = async (userId: number, currentStatus: boolean) => {
+    try {
+      const res = await api(`/api/admin/users/${userId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ isActive: !currentStatus }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Error al cambiar estado');
+      setActionMsg({
+        type: 'success',
+        text: `Cuenta ${!currentStatus ? 'activada' : 'desactivada'} correctamente.`,
+      });
+      fetchData();
     } catch (err: any) {
       setActionMsg({ type: 'error', text: err.message });
     }
@@ -676,9 +749,19 @@ export default function AdminPanel({ onClose, initialTab }: AdminPanelProps) {
                 Cuentas de estudiantes, docentes y administradores de EducaSuite 360
               </p>
             </div>
-            <span className="text-xs font-bold bg-[#E4E6EA] text-[#50545C] px-3 py-1 rounded-full">
-              {users.length} usuarios
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-bold bg-[#E4E6EA] text-[#50545C] px-3 py-1 rounded-full">
+                {users.length} usuarios
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowNewUserModal(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#F2412C] hover:bg-[#d93824] text-white text-xs font-bold transition shadow-xs cursor-pointer"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                Crear Usuario
+              </button>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -691,13 +774,14 @@ export default function AdminPanel({ onClose, initialTab }: AdminPanelProps) {
                   <th className="pb-3 px-3">Rol</th>
                   <th className="pb-3 px-3">Estado</th>
                   <th className="pb-3 px-3">Registrado el</th>
+                  <th className="pb-3 px-3">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E4E6EA] font-medium text-[#2B2D33]">
                 {loading ? (
-                  <tr><td colSpan={6} className="py-8 text-center text-[#9EA3AC]">Cargando...</td></tr>
+                  <tr><td colSpan={7} className="py-8 text-center text-[#9EA3AC]">Cargando...</td></tr>
                 ) : users.length === 0 ? (
-                  <tr><td colSpan={6} className="py-8 text-center text-[#9EA3AC]">No hay usuarios registrados.</td></tr>
+                  <tr><td colSpan={7} className="py-8 text-center text-[#9EA3AC]">No hay usuarios registrados.</td></tr>
                 ) : (
                   users.map((u) => (
                     <tr key={u.id} className="hover:bg-[#E4E6EA]/40 transition">
@@ -726,6 +810,30 @@ export default function AdminPanel({ onClose, initialTab }: AdminPanelProps) {
                         </span>
                       </td>
                       <td className="py-4 px-3 text-[#9EA3AC]">{new Date(u.createdAt).toLocaleDateString('es-BO')}</td>
+                      <td className="py-4 px-3">
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={u.role}
+                            onChange={(e) => handleUpdateUserRole(u.id, e.target.value)}
+                            className="text-[11px] font-bold bg-white border border-[#D1D5DB] rounded-lg px-2 py-1 text-[#2B2D33] focus:outline-hidden"
+                          >
+                            <option value="estudiante">Estudiante</option>
+                            <option value="docente">Docente</option>
+                            <option value="admin">Admin</option>
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleUserStatus(u.id, u.isActive)}
+                            className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition cursor-pointer ${
+                              u.isActive
+                                ? 'bg-rose-50 text-rose-700 hover:bg-rose-100 border-rose-200'
+                                : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200'
+                            }`}
+                          >
+                            {u.isActive ? 'Desactivar' : 'Activar'}
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -1052,6 +1160,103 @@ export default function AdminPanel({ onClose, initialTab }: AdminPanelProps) {
                 Confirmar Rechazo
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* MODAL CREAR USUARIO                                           */}
+      {/* ============================================================ */}
+      {showNewUserModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-3xl border border-[#D1D5DB] max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-[#E4E6EA]">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-[#F2412C]/10 flex items-center justify-center text-[#F2412C]">
+                  <UserPlus className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-[#2B2D33]">Crear Nuevo Usuario</h3>
+                  <p className="text-[11px] text-[#636870]">Añadir docente, administrador o estudiante</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowNewUserModal(false)}
+                className="p-1 rounded-lg hover:bg-[#E4E6EA] text-[#636870] transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateUser} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-[11px] font-bold text-[#2B2D33] mb-1">Nombre Completo</label>
+                <input
+                  type="text"
+                  required
+                  value={newUserName}
+                  onChange={(e) => setNewUserName(e.target.value)}
+                  placeholder="Ej. Ing. Carlos Mendoza"
+                  className="w-full px-3 py-2 rounded-xl border border-[#D1D5DB] bg-white text-[#2B2D33] focus:outline-hidden focus:border-[#F2412C]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-[#2B2D33] mb-1">Correo Electrónico</label>
+                <input
+                  type="email"
+                  required
+                  value={newUserEmail}
+                  onChange={(e) => setNewUserEmail(e.target.value)}
+                  placeholder="docente@ejemplo.com"
+                  className="w-full px-3 py-2 rounded-xl border border-[#D1D5DB] bg-white text-[#2B2D33] focus:outline-hidden focus:border-[#F2412C]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-[#2B2D33] mb-1">Contraseña Inicial</label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={newUserPassword}
+                  onChange={(e) => setNewUserPassword(e.target.value)}
+                  placeholder="Mínimo 6 caracteres"
+                  className="w-full px-3 py-2 rounded-xl border border-[#D1D5DB] bg-white text-[#2B2D33] focus:outline-hidden focus:border-[#F2412C]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-[#2B2D33] mb-1">Rol en el Sistema</label>
+                <select
+                  value={newUserRole}
+                  onChange={(e: any) => setNewUserRole(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-[#D1D5DB] bg-white text-[#2B2D33] font-bold focus:outline-hidden focus:border-[#F2412C]"
+                >
+                  <option value="docente">Docente (crea cursos y sube videos)</option>
+                  <option value="admin">Administrador (gestiona pagos y videos)</option>
+                  <option value="estudiante">Estudiante</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#E4E6EA]">
+                <button
+                  type="button"
+                  onClick={() => setShowNewUserModal(false)}
+                  className="px-4 py-2 rounded-xl border border-[#D1D5DB] text-[#555861] font-bold hover:bg-[#E4E6EA] transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={userActionLoading}
+                  className="px-4 py-2 rounded-xl bg-[#F2412C] hover:bg-[#d93824] text-white font-bold transition shadow-xs cursor-pointer disabled:opacity-50"
+                >
+                  {userActionLoading ? 'Creando...' : 'Crear Usuario'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

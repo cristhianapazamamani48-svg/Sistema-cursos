@@ -347,6 +347,33 @@ export class LessonsService {
         if (!enrollment || enrollment.status === 'cancelled') {
           throw new ForbiddenException('No tienes una inscripción activa al curso de esta lección');
         }
+
+        // Validación de bloqueo secuencial para estudiantes
+        const modRes = await this.pool.query(
+          `SELECT m.id, m.course_id as "courseId", m.order_index as "orderIndex"
+           FROM modules m
+           WHERE m.id = $1 AND m.deleted_at IS NULL;`,
+          [lesson.moduleId],
+        );
+        if (modRes.rowCount && modRes.rowCount > 0) {
+          const mod = modRes.rows[0];
+          const prevPendingRes = await this.pool.query(
+            `SELECT count(l.id)::int as pending
+             FROM modules prev_m
+             JOIN lessons l ON l.module_id = prev_m.id
+             LEFT JOIN lesson_progress lp ON lp.lesson_id = l.id AND lp.enrollment_id = $1 AND lp.is_completed = true
+             WHERE prev_m.course_id = $2
+               AND prev_m.deleted_at IS NULL
+               AND l.deleted_at IS NULL
+               AND l.status = 'published'
+               AND prev_m.order_index < $3
+               AND lp.id IS NULL;`,
+            [enrollment.id, mod.courseId, mod.orderIndex],
+          );
+          if (Number(prevPendingRes.rows[0]?.pending) > 0) {
+            throw new ForbiddenException('Esta lección pertenece a un módulo bloqueado');
+          }
+        }
       } else {
         throw new ForbiddenException('Se requiere autenticación para acceder a esta lección');
       }

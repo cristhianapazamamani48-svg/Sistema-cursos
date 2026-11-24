@@ -30,6 +30,7 @@ export default function YouTubeTracker({
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const heartbeatIntervalRef = useRef<any>(null);
+  const lastPositionRef = useRef<number | null>(null);
   const progressIdRef = useRef<number | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
@@ -143,10 +144,11 @@ export default function YouTubeTracker({
       clearInterval(heartbeatIntervalRef.current);
       heartbeatIntervalRef.current = null;
     }
+    lastPositionRef.current = null;
     setHeartbeatActive(false);
   };
 
-  // Enviar latido al backend con bloque floor(currentTime / 10)
+  // Enviar latido al backend con bloque(s) y soporte para velocidad hasta 2x
   const sendHeartbeat = async () => {
     const currentProgressId = progressIdRef.current;
     if (
@@ -161,6 +163,25 @@ export default function YouTubeTracker({
     const currentPositionSeconds = Math.floor(currentTime);
     const blockIndex = Math.floor(currentPositionSeconds / 10);
 
+    // Calcular rango de bloques entre el último latido y el actual (útil para 1.25x - 2x)
+    const blocks: number[] = [];
+    if (lastPositionRef.current !== null) {
+      const prevBlock = Math.floor(lastPositionRef.current / 10);
+      if (
+        currentPositionSeconds >= lastPositionRef.current &&
+        currentPositionSeconds - lastPositionRef.current <= 30
+      ) {
+        for (let b = Math.min(prevBlock, blockIndex); b <= Math.max(prevBlock, blockIndex); b++) {
+          blocks.push(b);
+        }
+      } else {
+        blocks.push(blockIndex);
+      }
+    } else {
+      blocks.push(blockIndex);
+    }
+    lastPositionRef.current = currentPositionSeconds;
+
     setHeartbeatActive(true);
 
     try {
@@ -169,6 +190,7 @@ export default function YouTubeTracker({
         body: JSON.stringify({
           progressId: currentProgressId,
           blockIndex,
+          blocks,
           currentPositionSeconds,
         }),
       });

@@ -155,12 +155,23 @@ export class ProgressService {
       }
     }
 
+    // Determinar bloques a registrar (soporta rango para reproducción acelerada hasta 2x)
+    let blocksToInsert: number[] = [];
+    if (Array.isArray(dto.blocks) && dto.blocks.length > 0) {
+      blocksToInsert = dto.blocks.slice(0, 50);
+    } else if (dto.blockIndex !== undefined) {
+      blocksToInsert = [dto.blockIndex];
+    } else {
+      blocksToInsert = [Math.floor(dto.currentPositionSeconds / 10)];
+    }
+
     // CONSULTA D: Heartbeat atómico con rate-limiting de 5 segundos y validación de rango de bloques
     const queryD = `
       UPDATE lesson_progress lp
          SET watched_blocks = ARRAY(
                SELECT DISTINCT b
-                 FROM unnest(lp.watched_blocks || ARRAY[$2::int]) AS b
+                 FROM unnest(lp.watched_blocks || $2::int[]) AS b
+                WHERE b BETWEEN 0 AND ceil(v.duration_seconds / 10.0)::int - 1
                 ORDER BY b),
              last_position_seconds = $3,
              last_heartbeat_at = now()
@@ -168,7 +179,6 @@ export class ProgressService {
         JOIN videos v ON v.id = l.video_id
        WHERE lp.id = $1
          AND l.id = lp.lesson_id
-         AND $2::int BETWEEN 0 AND ceil(v.duration_seconds / 10.0)::int - 1
          AND (lp.last_heartbeat_at IS NULL
               OR lp.last_heartbeat_at <= now() - interval '5 seconds')
       RETURNING lp.id;
@@ -176,7 +186,7 @@ export class ProgressService {
 
     const resD = await this.pool.query(queryD, [
       dto.progressId,
-      dto.blockIndex,
+      blocksToInsert,
       dto.currentPositionSeconds,
     ]);
 

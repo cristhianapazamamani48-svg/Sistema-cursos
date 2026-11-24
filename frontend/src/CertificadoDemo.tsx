@@ -207,7 +207,7 @@ export default function CertificadoDemo() {
                     Centro de Especialización y Formación Continua
                   </p>
                   <p className="text-[9px] text-[#9EA3AC] font-mono mt-0.5">
-                    Registro Nacional de Acreditación Digital N° 784-B
+                    Plantilla de Certificación y Acreditación Académica
                   </p>
                 </div>
               </div>
@@ -335,8 +335,8 @@ export default function CertificadoDemo() {
             {/* Aviso legal inferior en texto pequeño */}
             <div className="text-center pt-2">
               <p className="text-[8px] text-[#9EA3AC] font-mono tracking-tight">
-                Documento emitido electrónicamente por {data.institutionName} bajo el protocolo de integridad hash SHA-256.
-                La autenticidad puede ser verificada en el portal oficial ingresando el código único <strong>{data.verificationCode}</strong>.
+                Documento emitido con propósitos demostrativos por {data.institutionName}.
+                La validez del certificado se autentica mediante el código de registro <strong>{data.verificationCode}</strong>.
               </p>
             </div>
 

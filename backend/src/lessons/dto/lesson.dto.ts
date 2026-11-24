@@ -27,7 +27,7 @@ export type ReviewVideoDto = z.infer<typeof reviewVideoSchema>;
 
 export const createLessonSchema = z.object({
   moduleId: z.coerce.number().positive(),
-  videoId: z.coerce.number().positive().optional(),
+  videoId: z.coerce.number().positive().nullable().optional(),
   title: z.string().min(2, 'El título de la lección es requerido').trim(),
   description: z.string().optional(),
   orderIndex: z.coerce.number().int().min(0),

@@ -67,6 +67,10 @@ export class OrdersService {
     if (existingOrder) {
       return {
         message: 'Ya tienes una orden de pago pendiente para este curso',
+        id: Number(existingOrder.id),
+        amount: existingOrder.amount,
+        currency: existingOrder.currency,
+        status: existingOrder.status,
         order: existingOrder,
       };
     }
@@ -92,6 +96,10 @@ export class OrdersService {
       await client.query('COMMIT');
       return {
         message: priceNum === 0 ? 'Curso gratuito activado con éxito' : 'Orden de compra creada',
+        id: Number(newOrder.id),
+        amount: newOrder.amount,
+        currency: newOrder.currency,
+        status: newOrder.status,
         order: newOrder,
       };
     } catch (err) {

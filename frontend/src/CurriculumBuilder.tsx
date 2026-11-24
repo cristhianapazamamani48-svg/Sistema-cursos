@@ -398,7 +398,7 @@ export default function CurriculumBuilder({
             description: lessonDescription.trim() || undefined,
             orderIndex: nextOrder,
             status: lessonStatus,
-            videoId: finalVideoId || undefined,
+            videoId: finalVideoId ? finalVideoId : null,
           }),
         });
 
@@ -416,7 +416,7 @@ export default function CurriculumBuilder({
             title: lessonTitle.trim(),
             description: lessonDescription.trim() || undefined,
             status: lessonStatus,
-            videoId: finalVideoId || undefined,
+            videoId: finalVideoId ? finalVideoId : null,
           }),
         });
 

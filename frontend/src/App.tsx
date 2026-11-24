@@ -476,9 +476,10 @@ export default function App() {
             await enterClassroom(courseDetail.slug);
           }
         } else {
+          const order = data.order || data;
           showToast(
             'success',
-            `Orden #${data.id} creada por ${data.amount} ${data.currency}. El pago debe validarse en el panel administrativo.`
+            `Orden #${order.id} creada por ${order.amount} ${order.currency}. El pago debe validarse en el panel administrativo.`
           );
           await loadMyOrders();
           if (courseDetail) {
@@ -1391,7 +1392,7 @@ export default function App() {
                       {myOrders.map((order) => {
                         const isPending = order.status === 'pending';
                         const isPaid = order.status === 'paid' || order.status === 'completed';
-                        const isRejected = order.status === 'rejected';
+                        const isRejected = order.status === 'rejected' || order.status === 'failed';
 
                         return (
                           <tr key={order.id} className="hover:bg-slate-50/70 transition">
@@ -1557,16 +1558,18 @@ export default function App() {
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
-                        <a
-                          href="/certificado-demo"
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-emerald-300 hover:bg-emerald-50 text-emerald-900 text-xs font-black shadow-xs transition cursor-pointer"
-                        >
-                          <Award className="w-4 h-4 text-[#F2412C]" />
-                          Ver Certificado (Demo)
-                        </a>
-                        <span className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black shadow-xs shrink-0">
+                        {import.meta.env.DEV && (
+                          <a
+                            href="/certificado-demo"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-emerald-300 hover:bg-emerald-50 text-emerald-900 text-xs font-black shadow-xs transition cursor-pointer"
+                          >
+                            <Award className="w-4 h-4 text-[#F2412C]" />
+                            Formato Demo
+                          </a>
+                        )}
+                        <span className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black shadow-xs shrink-0">
                           <CheckCircle2 className="w-4 h-4" />
                           Aprobado
                         </span>

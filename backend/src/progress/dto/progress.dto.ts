@@ -2,7 +2,8 @@ import { z } from 'zod';
 
 export const heartbeatSchema = z.object({
   progressId: z.coerce.number().positive('ID de progreso inválido'),
-  blockIndex: z.coerce.number().int().min(0, 'Índice de bloque inválido'),
+  blockIndex: z.coerce.number().int().min(0, 'Índice de bloque inválido').optional(),
+  blocks: z.array(z.coerce.number().int().min(0)).optional(),
   currentPositionSeconds: z.coerce.number().int().min(0, 'Posición inválida'),
 });
 

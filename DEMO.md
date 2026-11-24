@@ -92,7 +92,7 @@ npm run seed -- --reset
      - Mostrar el pulso verde de **"Tracking Activo"** e indicar que el sistema envía latidos al servidor cada 5.5 segundos registrando bloques de 10 segundos.
      - Explicar la regla anti-trampa: un usuario no puede adelantar el video al final para aprobar; debe ver al menos el 85% de los bloques reales del contenido.
    - **Certificación**:
-     - Mostrar el estado del curso y el botón *"Solicitar Certificado"*, que permanece inactivo hasta completar todos los requisitos académicos.
+     - Mostrar la insignia de "Curso Completado" y estado de aprobación que se activa automáticamente al completar las lecciones requeridas.
 
 ---
 

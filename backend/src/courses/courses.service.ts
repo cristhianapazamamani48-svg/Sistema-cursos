@@ -740,7 +740,7 @@ export class CoursesService {
           video: row.video_id
             ? {
                 id: Number(row.video_id),
-                providerRef: row.provider_ref,
+                providerRef: isLocked ? null : row.provider_ref,
                 durationSeconds: row.duration_seconds,
               }
             : null,
@@ -819,9 +819,9 @@ export class CoursesService {
     const modulesCount = activeModules.length;
     const hasModules = modulesCount >= 1;
 
-    // 4. Cada lección con video aprobado
+    // 4. Cada lección con video aprobado y al menos una lección publicada
     const lessonRows = await this.pool.query(
-      `SELECT l.id, l.title as "lessonTitle", l.video_id as "videoId",
+      `SELECT l.id, l.title as "lessonTitle", l.video_id as "videoId", l.status as "lessonStatus",
               m.title as "moduleTitle",
               v.status as "videoStatus", v.title as "videoTitle", v.rejection_reason as "rejectionReason"
        FROM lessons l
@@ -835,11 +835,15 @@ export class CoursesService {
     const totalLessons = lessonRows.rowCount || 0;
     const lessonIssues: string[] = [];
     let approvedVideosCount = 0;
+    let publishedLessonsCount = 0;
 
     if (totalLessons === 0) {
       lessonIssues.push('El curso debe tener al menos una lección con video aprobado');
     } else {
       for (const row of lessonRows.rows) {
+        if (row.lessonStatus === 'published') {
+          publishedLessonsCount++;
+        }
         if (!row.videoId) {
           lessonIssues.push(`"${row.lessonTitle}" (${row.moduleTitle}): No tiene video asignado`);
         } else if (row.videoStatus !== 'approved') {
@@ -852,9 +856,13 @@ export class CoursesService {
           approvedVideosCount++;
         }
       }
+
+      if (publishedLessonsCount === 0) {
+        lessonIssues.push('El curso debe tener al menos una lección con estado publicado (actualmente todas están en borrador)');
+      }
     }
 
-    const hasApprovedLessons = totalLessons > 0 && lessonIssues.length === 0;
+    const hasApprovedLessons = totalLessons > 0 && publishedLessonsCount > 0 && lessonIssues.length === 0;
     const canPublish = hasTitle && hasThumbnail && hasModules && hasApprovedLessons;
 
     return {
@@ -884,15 +892,18 @@ export class CoursesService {
         lessons: {
           passed: hasApprovedLessons,
           totalLessons,
+          publishedLessonsCount,
           approvedVideosCount,
           issues: lessonIssues,
-          label: 'Cada lección con video aprobado',
+          label: 'Lecciones publicadas y con video aprobado',
           message:
             hasApprovedLessons
-              ? `Todas las lecciones (${totalLessons}) cuentan con video aprobado`
+              ? `El curso cuenta con ${publishedLessonsCount} lección(es) publicada(s) y videos aprobados`
               : totalLessons === 0
               ? 'Debes añadir al menos una lección con video aprobado'
-              : `${lessonIssues.length} lección(es) requieren video aprobado`,
+              : publishedLessonsCount === 0
+              ? 'Debes publicar al menos una lección'
+              : `${lessonIssues.length} asunto(s) pendiente(s) en lecciones`,
         },
       },
     };

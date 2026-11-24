@@ -4,9 +4,11 @@ import {
   ConflictException,
   UnauthorizedException,
   NotFoundException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { eq, and, gt } from 'drizzle-orm';
+import { eq, and, gt, lte } from 'drizzle-orm';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { DRIZZLE_DB, DrizzleDb } from '../database/database.provider';
@@ -18,12 +20,63 @@ import {
 } from '../database/schema/users.schema';
 import { RegisterDto, LoginDto } from './dto/auth.dto';
 
+// Hash bcrypt ficticio de 12 rondas para mitigar ataques de temporización/enumeración
+const DUMMY_HASH = '$2b$12$e80yVv5a7F6gM71s0Z/nEu11p6Z4y7cZJ1o5N5kGv1W3q8s5z2m2u';
+
+interface FailedLoginTracker {
+  count: number;
+  blockedUntil: number;
+}
+
 @Injectable()
 export class AuthService {
+  private readonly loginAttempts = new Map<string, FailedLoginTracker>();
+
   constructor(
     @Inject(DRIZZLE_DB) private readonly db: DrizzleDb,
     private readonly configService: ConfigService,
   ) {}
+
+  private checkLoginRateLimit(key: string): void {
+    const entry = this.loginAttempts.get(key);
+    if (!entry) return;
+
+    if (entry.blockedUntil > Date.now()) {
+      const waitSeconds = Math.ceil((entry.blockedUntil - Date.now()) / 1000);
+      throw new HttpException(
+        `Demasiados intentos fallidos. Inténtalo de nuevo en ${waitSeconds} segundos.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    if (entry.blockedUntil > 0 && entry.blockedUntil <= Date.now()) {
+      this.loginAttempts.delete(key);
+    }
+  }
+
+  private recordFailedLogin(key: string): void {
+    const entry = this.loginAttempts.get(key) || { count: 0, blockedUntil: 0 };
+    entry.count += 1;
+    if (entry.count >= 5) {
+      entry.blockedUntil = Date.now() + 15 * 60 * 1000; // Bloqueo por 15 minutos
+    }
+    this.loginAttempts.set(key, entry);
+  }
+
+  private resetLoginRateLimit(key: string): void {
+    this.loginAttempts.delete(key);
+  }
+
+  /**
+   * Limpieza de sesiones expiradas en la base de datos
+   */
+  async cleanExpiredSessions(): Promise<void> {
+    try {
+      await this.db.delete(sessions).where(lte(sessions.expiresAt, new Date()));
+    } catch {
+      // Ignorar errores menores en limpieza periódica
+    }
+  }
 
   /**
    * Hashea un token para almacenar solo el hash SHA-256 en la base de datos
@@ -73,11 +126,18 @@ export class AuthService {
 
   /**
    * Autenticación de usuario y creación de sesión en BD
+   * Con mitigación contra timing attacks / enumeración de cuentas y rate limit
    */
   async login(
     dto: LoginDto,
     meta: { ip?: string; userAgent?: string },
   ): Promise<{ rawToken: string; user: Omit<User, 'passwordHash'>; csrfToken: string }> {
+    const rateLimitKey = `${meta.ip || 'unknown'}_${dto.email.toLowerCase()}`;
+    this.checkLoginRateLimit(rateLimitKey);
+
+    // Limpieza oportunista de sesiones expiradas
+    this.cleanExpiredSessions().catch(() => {});
+
     const [user] = await this.db
       .select()
       .from(users)
@@ -85,17 +145,26 @@ export class AuthService {
       .limit(1);
 
     if (!user) {
+      // Tiempo constante usando DUMMY_HASH para evitar enumeración de cuentas
+      await bcrypt.compare(dto.password, DUMMY_HASH);
+      this.recordFailedLogin(rateLimitKey);
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
     if (!user.isActive) {
-      throw new UnauthorizedException('La cuenta está desactivada');
+      await bcrypt.compare(dto.password, user.passwordHash);
+      this.recordFailedLogin(rateLimitKey);
+      throw new UnauthorizedException('Credenciales inválidas');
     }
 
     const isPasswordValid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!isPasswordValid) {
+      this.recordFailedLogin(rateLimitKey);
       throw new UnauthorizedException('Credenciales inválidas');
     }
+
+    // Login exitoso: limpiar contador de intentos fallidos
+    this.resetLoginRateLimit(rateLimitKey);
 
     // Crear sesión
     const rawToken = this.generateSecureToken(32);
@@ -144,7 +213,7 @@ export class AuthService {
 
     const { session, user } = rows[0];
 
-    // Actualizar last_seen_at (asíncrono, fire and forget o con await rápido)
+    // Actualizar last_seen_at
     await this.db
       .update(sessions)
       .set({ lastSeenAt: now })
