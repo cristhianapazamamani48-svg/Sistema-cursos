@@ -24,7 +24,7 @@ export class UpdatePasswordDto {
   confirmPassword!: string;
 }
 
-@Controller('api/users')
+@Controller('users')
 @UseGuards(SessionGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}

@@ -16,6 +16,8 @@ import {
   Calendar,
   BarChart2,
   Loader2,
+  AlertCircle,
+  RotateCcw,
 } from 'lucide-react';
 import { api } from './api';
 
@@ -179,7 +181,26 @@ export default function UserProfileView({ showToast, onProfileUpdated }: Props) 
     );
   }
 
-  if (!profile) return null;
+  if (!profile) {
+    return (
+      <div className="max-w-md mx-auto my-12 bg-white border border-[#D1D5DB] rounded-3xl p-8 text-center space-y-4 shadow-xs">
+        <div className="w-12 h-12 rounded-2xl bg-red-50 text-[#F2412C] flex items-center justify-center mx-auto">
+          <AlertCircle className="w-6 h-6" />
+        </div>
+        <div className="space-y-1">
+          <h3 className="text-sm font-black text-[#2B2D33]">No se pudo cargar la información del perfil</h3>
+          <p className="text-xs text-[#555861]">Hubo un inconveniente al consultar tu información. Por favor, reintenta.</p>
+        </div>
+        <button
+          onClick={loadProfile}
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#F2412C] hover:bg-[#d93520] text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-xs"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          <span>Reintentar</span>
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
