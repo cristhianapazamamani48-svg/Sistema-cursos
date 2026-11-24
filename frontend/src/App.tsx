@@ -34,6 +34,7 @@ import YouTubeTracker from './YouTubeTracker';
 import TeacherCoursesView from './TeacherCoursesView';
 import CertificateModal from './CertificateModal';
 import VerifyCertificateModal from './VerifyCertificateModal';
+import UnitClassroomView from './UnitClassroomView';
 import { api, setCsrfToken as setGlobalCsrfToken, setOnUnauthorized } from './api';
 
 interface User {
@@ -79,12 +80,15 @@ interface EnrolledCourse {
 interface ClassroomLesson {
   id: number;
   title: string;
+  description?: string | null;
   orderIndex: number;
   isLocked: boolean;
   isCompleted: boolean;
   progressId: number | null;
   currentWatchPercentage: number;
   lastPositionSeconds: number;
+  studyMaterialUrl?: string | null;
+  studyMaterialContent?: string | null;
   video: {
     id: number;
     providerRef: string;
@@ -1844,38 +1848,14 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* Reproductor con Heartbeat Real */}
-                    {selectedLesson.video ? (
-                      <YouTubeTracker
-                        videoId={selectedLesson.video.providerRef}
-                        lessonId={selectedLesson.id}
-                        minWatchPercentage={classroomData.course.minWatchPercentage}
-                        onProgressUpdate={(stats) => {
-                          if (stats.isCompleted) {
-                            showToast('success', '¡Felicitaciones! Has completado esta lección.');
-                            enterClassroom(classroomData.course.slug);
-                          }
-                        }}
-                      />
-                    ) : (
-                      <div className="aspect-video bg-[#2B2D33] rounded-2xl flex flex-col items-center justify-center text-[#E4E6EA] space-y-2">
-                        <FileText className="w-8 h-8 text-white" />
-                        <span className="text-xs">Esta lección no incluye video</span>
-                      </div>
-                    )}
-
-                    {/* Pestañas de la lección */}
-                    <div className="border-t border-[#E4E6EA] pt-4 space-y-3">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-[#555861]">
-                        Normas de Aprobación
-                      </h4>
-                      <p className="text-xs text-[#555861] leading-relaxed">
-                        Para registrar tu asistencia debes reproducir al menos el{' '}
-                        <strong className="text-[#2B2D33]">{classroomData.course.minWatchPercentage}%</strong> del video
-                        sin saltar fragmentos. Nuestro sistema guarda automáticamente tu avance mediante pulsos de
-                        verificación en bloques de 10 segundos.
-                      </p>
-                    </div>
+                    {/* Componentes Pedagógicos de la Unidad (Estudio, Complementario, Actividades, Foro, Evaluación) */}
+                    <UnitClassroomView
+                      lesson={selectedLesson}
+                      courseSlug={classroomData.course.slug}
+                      minWatchPercentage={classroomData.course.minWatchPercentage}
+                      onRefreshClassroom={() => enterClassroom(classroomData.course.slug)}
+                      showToast={showToast}
+                    />
                   </div>
                 ) : (
                   <div className="bg-white border border-[#D1D5DB] rounded-3xl p-12 text-center text-[#555861] shadow-xs">

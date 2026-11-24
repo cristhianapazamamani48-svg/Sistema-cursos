@@ -18,6 +18,8 @@ export const lessons = pgTable('lessons', {
   description: text('description'),
   orderIndex: integer('order_index').notNull(),
   status: text('status', { enum: lessonStatusValues }).notNull().default('draft'),
+  studyMaterialUrl: text('study_material_url'),
+  studyMaterialContent: text('study_material_content'),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -31,6 +33,9 @@ export const resources = pgTable('resources', {
   title: text('title').notNull(),
   type: text('type', { enum: resourceTypeValues }).notNull(),
   url: text('url').notNull(),
+  materialCategory: text('material_category', { enum: ['study', 'complementary'] })
+    .notNull()
+    .default('complementary'),
   orderIndex: integer('order_index').notNull().default(0),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

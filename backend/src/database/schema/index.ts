@@ -7,3 +7,4 @@ export * from './enrollments.schema';
 export * from './lesson-progress.schema';
 export * from './audit-logs.schema';
 export * from './certificates.schema';
+export * from './units-pedagogical.schema';

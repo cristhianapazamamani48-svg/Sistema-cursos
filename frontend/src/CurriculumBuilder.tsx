@@ -24,6 +24,7 @@ import {
 import { api } from './api';
 import type { ManagedCourse } from './TeacherCoursesView';
 import PublishChecklistModal from './PublishChecklistModal';
+import UnitPedagogicalEditor from './UnitPedagogicalEditor';
 
 export interface LessonItem {
   id: number;
@@ -33,6 +34,8 @@ export interface LessonItem {
   orderIndex: number;
   status: 'draft' | 'published';
   videoId: number | null;
+  studyMaterialUrl?: string | null;
+  studyMaterialContent?: string | null;
   video: {
     id: number;
     provider: string;
@@ -1281,6 +1284,17 @@ export default function CurriculumBuilder({
                   </button>
                 </div>
               </form>
+            )}
+
+            {/* Componentes Pedagógicos (Foro, Evaluación, Materiales, Actividades) para la unidad en edición */}
+            {editorMode.type === 'edit-lesson' && (
+              <UnitPedagogicalEditor
+                lessonId={editorMode.lesson.id}
+                initialStudyUrl={editorMode.lesson.studyMaterialUrl}
+                initialStudyContent={editorMode.lesson.studyMaterialContent}
+                showToast={showToast}
+                onUpdated={loadCurriculum}
+              />
             )}
           </div>
         </div>

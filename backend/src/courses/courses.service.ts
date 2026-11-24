@@ -450,7 +450,8 @@ export class CoursesService {
       courseModules.map(async (mod) => {
         const rows = await this.pool.query(
           `SELECT l.id, l.module_id as "moduleId", l.title, l.description, l.order_index as "orderIndex",
-                  l.status, l.video_id as "videoId", l.created_at as "createdAt",
+                  l.status, l.video_id as "videoId", l.study_material_url as "studyMaterialUrl",
+                  l.study_material_content as "studyMaterialContent", l.created_at as "createdAt",
                   v.provider, v.provider_ref as "providerRef", v.duration_seconds as "durationSeconds",
                   v.status as "videoStatus", v.title as "videoTitle", v.rejection_reason as "rejectionReason"
            FROM lessons l
@@ -474,6 +475,8 @@ export class CoursesService {
             orderIndex: Number(r.orderIndex),
             status: r.status,
             videoId: r.videoId ? Number(r.videoId) : null,
+            studyMaterialUrl: r.studyMaterialUrl || null,
+            studyMaterialContent: r.studyMaterialContent || null,
             video: r.videoId
               ? {
                   id: Number(r.videoId),
@@ -699,7 +702,8 @@ export class CoursesService {
 
       // Obtener lecciones publicadas del módulo
       const lessonsRes = await this.pool.query(
-        `SELECT l.id, l.title, l.order_index, l.status, l.video_id,
+        `SELECT l.id, l.title, l.description, l.order_index, l.status, l.video_id,
+                l.study_material_url, l.study_material_content,
                 v.provider_ref, v.duration_seconds,
                 lp.id as progress_id, lp.is_completed, lp.last_position_seconds,
                 cardinality(lp.watched_blocks) as watched_blocks_count,
@@ -731,12 +735,15 @@ export class CoursesService {
         return {
           id: Number(row.id),
           title: row.title,
+          description: row.description,
           orderIndex: row.order_index,
           isLocked,
           isCompleted: isLessonCompleted,
           progressId: row.progress_id ? Number(row.progress_id) : null,
           currentWatchPercentage,
           lastPositionSeconds: row.last_position_seconds || 0,
+          studyMaterialUrl: row.study_material_url || null,
+          studyMaterialContent: row.study_material_content || null,
           video: row.video_id
             ? {
                 id: Number(row.video_id),
