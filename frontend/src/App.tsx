@@ -193,6 +193,7 @@ export default function App() {
 
   // Certificados oficiales y validación pública
   const [selectedCertificateEnrollmentId, setSelectedCertificateEnrollmentId] = useState<number | null>(null);
+  const [selectedInitialCertificate, setSelectedInitialCertificate] = useState<import('./CertificateModal').CertificateData | null>(null);
   const [isCertificateModalOpen, setIsCertificateModalOpen] = useState(false);
   const [verifyCertificateCode, setVerifyCertificateCode] = useState<string | null>(null);
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
@@ -1192,8 +1193,9 @@ export default function App() {
         {/* VISTA: MIS CERTIFICADOS (ESTUDIANTE) */}
         {activeTab === 'my-certificates' && currentUser && (currentUser.role === 'estudiante' || currentUser.role === 'student') && (
           <StudentCertificatesView
-            onOpenCertificateModal={(enrollmentId) => {
+            onOpenCertificateModal={(enrollmentId, cert) => {
               setSelectedCertificateEnrollmentId(enrollmentId);
+              setSelectedInitialCertificate(cert ?? null);
               setIsCertificateModalOpen(true);
             }}
             onOpenVerifyModal={(code) => {
@@ -1985,8 +1987,10 @@ export default function App() {
         onClose={() => {
           setIsCertificateModalOpen(false);
           setSelectedCertificateEnrollmentId(null);
+          setSelectedInitialCertificate(null);
         }}
         enrollmentId={selectedCertificateEnrollmentId}
+        initialCertificate={selectedInitialCertificate}
         onOpenVerify={(certCode) => {
           setVerifyCertificateCode(certCode);
           setIsVerifyModalOpen(true);

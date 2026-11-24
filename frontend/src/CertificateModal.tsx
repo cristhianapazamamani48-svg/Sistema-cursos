@@ -54,10 +54,12 @@ export default function CertificateModal({
       setCertificate(initialCertificate);
       return;
     }
-    if (enrollmentId) fetchCertificate(enrollmentId);
+    if (enrollmentId && enrollmentId > 0) fetchCertificate(enrollmentId);
   }, [isOpen, enrollmentId, initialCertificate]);
 
   const fetchCertificate = async (enrId: number) => {
+    // Guardia: nunca hacer fetch para enrollmentId inválido (demo, etc.)
+    if (enrId <= 0) return;
     setLoading(true);
     setError(null);
     try {
