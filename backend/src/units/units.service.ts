@@ -603,4 +603,475 @@ export class UnitsService {
       totalPoints,
     };
   }
+
+  // =========================================================================
+  // 5. LIBRO DE CALIFICACIONES (GRADEBOOK)
+  // =========================================================================
+
+  /**
+   * Verifica permisos de docente sobre un curso
+   */
+  async assertCourseTeacher(courseId: number, user: User) {
+    if (user.role === 'admin' || user.role === 'superadmin') return;
+
+    const [course] = await this.db
+      .select()
+      .from(courses)
+      .where(eq(courses.id, courseId))
+      .limit(1);
+
+    if (!course) {
+      throw new NotFoundException(`Curso #${courseId} no encontrado`);
+    }
+
+    if (Number(course.createdBy) === Number(user.id)) return;
+
+    const [assigned] = await this.db
+      .select()
+      .from(courseDocentes)
+      .where(and(eq(courseDocentes.courseId, courseId), eq(courseDocentes.userId, user.id)))
+      .limit(1);
+
+    if (!assigned) {
+      throw new ForbiddenException('No tienes permiso de docente sobre este curso');
+    }
+  }
+
+  /**
+   * Obtiene la matriz completa del Gradebook para un curso (Docente / Admin)
+   */
+  async getCourseGradebook(courseId: number, user: User) {
+    await this.assertCourseTeacher(courseId, user);
+
+    const [course] = await this.db
+      .select()
+      .from(courses)
+      .where(eq(courses.id, courseId))
+      .limit(1);
+
+    if (!course) {
+      throw new NotFoundException(`Curso #${courseId} no encontrado`);
+    }
+
+    // 1. Obtener módulos y lecciones (unidades)
+    const modulesRes = await this.pool.query(
+      `SELECT m.id as module_id, m.title as module_title, m.order_index as module_order,
+              l.id as lesson_id, l.title as lesson_title, l.order_index as lesson_order
+       FROM modules m
+       JOIN lessons l ON l.module_id = m.id AND l.deleted_at IS NULL AND l.status = 'published'
+       WHERE m.course_id = $1 AND m.deleted_at IS NULL
+       ORDER BY m.order_index ASC, l.order_index ASC;`,
+      [courseId],
+    );
+
+    // 2. Obtener todas las actividades del curso
+    const activitiesRes = await this.pool.query(
+      `SELECT a.id, a.lesson_id as "lessonId", a.title, a.due_date as "dueDate"
+       FROM unit_activities a
+       JOIN lessons l ON l.id = a.lesson_id AND l.deleted_at IS NULL
+       JOIN modules m ON m.id = l.module_id AND m.deleted_at IS NULL
+       WHERE m.course_id = $1
+       ORDER BY a.created_at ASC;`,
+      [courseId],
+    );
+
+    // 3. Obtener todos los cuestionarios del curso
+    const quizzesRes = await this.pool.query(
+      `SELECT q.id, q.lesson_id as "lessonId", q.title, q.passing_score as "passingScore", q.max_attempts as "maxAttempts"
+       FROM quizzes q
+       JOIN lessons l ON l.id = q.lesson_id AND l.deleted_at IS NULL
+       JOIN modules m ON m.id = l.module_id AND m.deleted_at IS NULL
+       WHERE m.course_id = $1
+       ORDER BY q.created_at ASC;`,
+      [courseId],
+    );
+
+    // 4. Obtener todos los estudiantes inscritos
+    const studentsRes = await this.pool.query(
+      `SELECT e.id as enrollment_id, e.user_id as "userId", e.status as enrollment_status, e.enrolled_at as "enrolledAt",
+              u.full_name as "fullName", u.email
+       FROM enrollments e
+       JOIN users u ON u.id = e.user_id
+       WHERE e.course_id = $1 AND e.status != 'cancelled'
+       ORDER BY u.full_name ASC;`,
+      [courseId],
+    );
+
+    // 5. Obtener todas las entregas de actividades del curso
+    const submissionsRes = await this.pool.query(
+      `SELECT s.id, s.activity_id as "activityId", s.user_id as "userId", s.content, s.file_url as "fileUrl",
+              s.grade, s.feedback, s.status, s.submitted_at as "submittedAt", s.updated_at as "updatedAt"
+       FROM activity_submissions s
+       JOIN unit_activities a ON a.id = s.activity_id
+       JOIN lessons l ON l.id = a.lesson_id
+       JOIN modules m ON m.id = l.module_id
+       WHERE m.course_id = $1;`,
+      [courseId],
+    );
+
+    // 6. Obtener mejores puntajes de cuestionarios por usuario y quiz
+    const attemptsRes = await this.pool.query(
+      `SELECT qa.quiz_id as "quizId", qa.user_id as "userId",
+              MAX(qa.score)::numeric as "bestScore",
+              BOOL_OR(qa.passed) as "passed",
+              COUNT(qa.id)::int as "attemptsCount"
+       FROM quiz_attempts qa
+       JOIN quizzes q ON q.id = qa.quiz_id
+       JOIN lessons l ON l.id = q.lesson_id
+       JOIN modules m ON m.id = l.module_id
+       WHERE m.course_id = $1
+       GROUP BY qa.quiz_id, qa.user_id;`,
+      [courseId],
+    );
+
+    // Mapear estructuras auxiliares
+    const submissionsByUser = new Map<number, any[]>();
+    for (const sub of submissionsRes.rows) {
+      const uid = Number(sub.userId);
+      if (!submissionsByUser.has(uid)) submissionsByUser.set(uid, []);
+      submissionsByUser.get(uid)!.push({
+        ...sub,
+        grade: sub.grade !== null ? Number(sub.grade) : null,
+      });
+    }
+
+    const attemptsByUser = new Map<number, any[]>();
+    for (const att of attemptsRes.rows) {
+      const uid = Number(att.userId);
+      if (!attemptsByUser.has(uid)) attemptsByUser.set(uid, []);
+      attemptsByUser.get(uid)!.push({
+        ...att,
+        bestScore: Number(att.bestScore),
+      });
+    }
+
+    const totalCourseActivities = activitiesRes.rows.length;
+    const totalCourseQuizzes = quizzesRes.rows.length;
+
+    // Construir tabla de estudiantes
+    const students = studentsRes.rows.map((st) => {
+      const uid = Number(st.userId);
+      const userSubs = submissionsByUser.get(uid) || [];
+      const userAtts = attemptsByUser.get(uid) || [];
+
+      // Actividades: mapa por activityId
+      const activitiesMap: Record<number, any> = {};
+      let totalActivityScore = 0;
+      let gradedActivitiesCount = 0;
+
+      for (const act of activitiesRes.rows) {
+        const sub = userSubs.find((s) => s.activityId === act.id);
+        if (sub) {
+          activitiesMap[act.id] = sub;
+          if (sub.grade !== null && sub.status === 'graded') {
+            totalActivityScore += sub.grade;
+            gradedActivitiesCount++;
+          }
+        } else {
+          activitiesMap[act.id] = null;
+        }
+      }
+
+      // Quizzes: mapa por quizId
+      const quizzesMap: Record<number, any> = {};
+      let totalQuizScore = 0;
+      let completedQuizzesCount = 0;
+
+      for (const qz of quizzesRes.rows) {
+        const att = userAtts.find((a) => a.quizId === qz.id);
+        if (att) {
+          quizzesMap[qz.id] = att;
+          totalQuizScore += att.bestScore;
+          completedQuizzesCount++;
+        } else {
+          quizzesMap[qz.id] = null;
+        }
+      }
+
+      const avgActivityScore =
+        gradedActivitiesCount > 0 ? Math.round(totalActivityScore / gradedActivitiesCount) : null;
+      const avgQuizScore =
+        completedQuizzesCount > 0 ? Math.round(totalQuizScore / completedQuizzesCount) : null;
+
+      // Promedio general del curso (50% actividades, 50% evaluaciones si ambos existen)
+      let finalGrade: number | null = null;
+      if (avgActivityScore !== null && avgQuizScore !== null) {
+        finalGrade = Math.round((avgActivityScore + avgQuizScore) / 2);
+      } else if (avgActivityScore !== null) {
+        finalGrade = avgActivityScore;
+      } else if (avgQuizScore !== null) {
+        finalGrade = avgQuizScore;
+      }
+
+      return {
+        userId: uid,
+        enrollmentId: Number(st.enrollment_id),
+        enrollmentStatus: st.enrollment_status,
+        enrolledAt: st.enrolledAt,
+        fullName: st.fullName,
+        email: st.email,
+        activities: activitiesMap,
+        quizzes: quizzesMap,
+        stats: {
+          submittedActivitiesCount: userSubs.length,
+          gradedActivitiesCount,
+          totalActivities: totalCourseActivities,
+          avgActivityScore,
+          passedQuizzesCount: userAtts.filter((a) => a.passed).length,
+          totalQuizzes: totalCourseQuizzes,
+          avgQuizScore,
+          finalGrade,
+        },
+      };
+    });
+
+    return {
+      course: {
+        id: course.id,
+        title: course.title,
+        slug: course.slug,
+      },
+      units: modulesRes.rows,
+      activities: activitiesRes.rows,
+      quizzes: quizzesRes.rows,
+      students,
+    };
+  }
+
+  /**
+   * Obtiene todas las entregas para una actividad específica (Docente / Admin)
+   */
+  async getActivitySubmissions(activityId: number, user: User) {
+    const actRes = await this.pool.query(
+      `SELECT a.id, a.lesson_id, a.title, a.instructions, a.due_date
+       FROM unit_activities a
+       WHERE a.id = $1;`,
+      [activityId],
+    );
+
+    if (actRes.rowCount === 0) {
+      throw new NotFoundException(`Actividad #${activityId} no encontrada`);
+    }
+
+    const activity = actRes.rows[0];
+    await this.assertUnitTeacher(activity.lesson_id, user);
+
+    const subsRes = await this.pool.query(
+      `SELECT s.id, s.activity_id as "activityId", s.user_id as "userId", s.content, s.file_url as "fileUrl",
+              s.grade, s.feedback, s.status, s.submitted_at as "submittedAt", s.updated_at as "updatedAt",
+              u.full_name as "studentName", u.email as "studentEmail"
+       FROM activity_submissions s
+       JOIN users u ON u.id = s.user_id
+       WHERE s.activity_id = $1
+       ORDER BY s.submitted_at DESC;`,
+      [activityId],
+    );
+
+    return {
+      activity,
+      submissions: subsRes.rows.map((r) => ({
+        ...r,
+        grade: r.grade !== null ? Number(r.grade) : null,
+      })),
+    };
+  }
+
+  /**
+   * Califica y proporciona retroalimentación a una entrega de actividad (Docente / Admin)
+   */
+  async gradeActivitySubmission(
+    submissionId: number,
+    dto: { grade: number; feedback?: string },
+    user: User,
+  ) {
+    const subRes = await this.pool.query(
+      `SELECT s.id, s.activity_id, a.lesson_id, s.user_id
+       FROM activity_submissions s
+       JOIN unit_activities a ON a.id = s.activity_id
+       WHERE s.id = $1;`,
+      [submissionId],
+    );
+
+    if (subRes.rowCount === 0) {
+      throw new NotFoundException(`Entrega #${submissionId} no encontrada`);
+    }
+
+    const sub = subRes.rows[0];
+    await this.assertUnitTeacher(sub.lesson_id, user);
+
+    if (dto.grade < 0 || dto.grade > 100) {
+      throw new BadRequestException('La calificación debe estar entre 0 y 100 puntos');
+    }
+
+    const updateRes = await this.pool.query(
+      `UPDATE activity_submissions
+          SET grade = $1,
+              feedback = $2,
+              status = 'graded',
+              updated_at = now()
+        WHERE id = $3
+        RETURNING id, activity_id as "activityId", user_id as "userId", grade, feedback, status,
+                  submitted_at as "submittedAt", updated_at as "updatedAt";`,
+      [dto.grade, dto.feedback || null, submissionId],
+    );
+
+    return {
+      ...updateRes.rows[0],
+      grade: Number(updateRes.rows[0].grade),
+    };
+  }
+
+  /**
+   * Obtiene el reporte y desglose de calificaciones del estudiante para un curso (Estudiante)
+   */
+  async getMyGrades(courseId: number, user: User) {
+    // 1. Verificar inscripción
+    const enrollRes = await this.pool.query(
+      `SELECT id, status, enrolled_at as "enrolledAt"
+       FROM enrollments
+       WHERE user_id = $1 AND course_id = $2 AND status != 'cancelled';`,
+      [user.id, courseId],
+    );
+
+    if (enrollRes.rowCount === 0) {
+      throw new ForbiddenException('No tienes una inscripción activa a este curso');
+    }
+
+    const [course] = await this.db
+      .select()
+      .from(courses)
+      .where(eq(courses.id, courseId))
+      .limit(1);
+
+    if (!course) {
+      throw new NotFoundException(`Curso #${courseId} no encontrado`);
+    }
+
+    // 2. Módulos y lecciones (unidades)
+    const modulesRes = await this.pool.query(
+      `SELECT m.id as module_id, m.title as module_title, m.order_index as module_order,
+              l.id as lesson_id, l.title as lesson_title, l.order_index as lesson_order,
+              lp.is_completed as lesson_completed
+       FROM modules m
+       JOIN lessons l ON l.module_id = m.id AND l.deleted_at IS NULL AND l.status = 'published'
+       LEFT JOIN lesson_progress lp ON lp.lesson_id = l.id AND lp.enrollment_id = $2
+       WHERE m.course_id = $1 AND m.deleted_at IS NULL
+       ORDER BY m.order_index ASC, l.order_index ASC;`,
+      [courseId, enrollRes.rows[0].id],
+    );
+
+    // 3. Actividades del estudiante
+    const activitiesRes = await this.pool.query(
+      `SELECT a.id, a.lesson_id as "lessonId", a.title, a.description, a.due_date as "dueDate",
+              s.id as "submissionId", s.content, s.file_url as "fileUrl", s.grade, s.feedback,
+              s.status, s.submitted_at as "submittedAt", s.updated_at as "updatedAt"
+       FROM unit_activities a
+       JOIN lessons l ON l.id = a.lesson_id AND l.deleted_at IS NULL
+       JOIN modules m ON m.id = l.module_id AND m.deleted_at IS NULL
+       LEFT JOIN activity_submissions s ON s.activity_id = a.id AND s.user_id = $2
+       WHERE m.course_id = $1
+       ORDER BY a.created_at ASC;`,
+      [courseId, user.id],
+    );
+
+    // 4. Evaluaciones del estudiante
+    const quizzesRes = await this.pool.query(
+      `SELECT q.id, q.lesson_id as "lessonId", q.title, q.description,
+              q.passing_score as "passingScore", q.max_attempts as "maxAttempts",
+              MAX(qa.score)::numeric as "bestScore",
+              BOOL_OR(qa.passed) as "passed",
+              COUNT(qa.id)::int as "attemptsCount"
+       FROM quizzes q
+       JOIN lessons l ON l.id = q.lesson_id AND l.deleted_at IS NULL
+       JOIN modules m ON m.id = l.module_id AND m.deleted_at IS NULL
+       LEFT JOIN quiz_attempts qa ON qa.quiz_id = q.id AND qa.user_id = $2
+       WHERE m.course_id = $1
+       GROUP BY q.id, q.lesson_id, q.title, q.description, q.passing_score, q.max_attempts
+       ORDER BY q.created_at ASC;`,
+      [courseId, user.id],
+    );
+
+    // Cálculos de resumen
+    let totalActivityGrade = 0;
+    let gradedActivities = 0;
+    const activities = activitiesRes.rows.map((a) => {
+      const grade = a.grade !== null ? Number(a.grade) : null;
+      if (grade !== null && a.status === 'graded') {
+        totalActivityGrade += grade;
+        gradedActivities++;
+      }
+      return {
+        ...a,
+        grade,
+      };
+    });
+
+    let totalQuizGrade = 0;
+    let completedQuizzes = 0;
+    let passedQuizzes = 0;
+    const quizzes = quizzesRes.rows.map((q) => {
+      const bestScore = q.bestScore !== null ? Number(q.bestScore) : null;
+      if (bestScore !== null) {
+        totalQuizGrade += bestScore;
+        completedQuizzes++;
+        if (q.passed) passedQuizzes++;
+      }
+      return {
+        ...q,
+        bestScore,
+        passed: Boolean(q.passed),
+      };
+    });
+
+    const avgActivityScore = gradedActivities > 0 ? Math.round(totalActivityGrade / gradedActivities) : null;
+    const avgQuizScore = completedQuizzes > 0 ? Math.round(totalQuizGrade / completedQuizzes) : null;
+
+    let finalGrade: number | null = null;
+    if (avgActivityScore !== null && avgQuizScore !== null) {
+      finalGrade = Math.round((avgActivityScore + avgQuizScore) / 2);
+    } else if (avgActivityScore !== null) {
+      finalGrade = avgActivityScore;
+    } else if (avgQuizScore !== null) {
+      finalGrade = avgQuizScore;
+    }
+
+    return {
+      course: {
+        id: course.id,
+        title: course.title,
+        slug: course.slug,
+      },
+      enrollment: enrollRes.rows[0],
+      summary: {
+        finalGrade,
+        avgActivityScore,
+        avgQuizScore,
+        totalActivities: activities.length,
+        submittedActivities: activities.filter((a) => a.submissionId).length,
+        gradedActivities,
+        totalQuizzes: quizzes.length,
+        passedQuizzes,
+      },
+      activities,
+      quizzes,
+      modules: modulesRes.rows,
+    };
+  }
+
+  /**
+   * Obtiene calificaciones del estudiante buscando por slug de curso
+   */
+  async getMyGradesBySlug(slug: string, user: User) {
+    const [course] = await this.db
+      .select()
+      .from(courses)
+      .where(eq(courses.slug, slug))
+      .limit(1);
+
+    if (!course) {
+      throw new NotFoundException(`Curso con slug '${slug}' no encontrado`);
+    }
+
+    return this.getMyGrades(course.id, user);
+  }
 }

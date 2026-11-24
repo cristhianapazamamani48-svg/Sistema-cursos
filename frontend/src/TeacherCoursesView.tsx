@@ -14,11 +14,13 @@ import {
   X,
   Loader2,
   Tag,
+  Award,
 } from 'lucide-react';
 import { api } from './api';
 import CourseFormWizard from './CourseFormWizard';
 import CurriculumBuilder from './CurriculumBuilder';
 import PublishChecklistModal from './PublishChecklistModal';
+import TeacherGradebookView from './TeacherGradebookView';
 
 export interface ManagedCourse {
   id: number;
@@ -70,6 +72,10 @@ export default function TeacherCoursesView({
 
   // Control del Constructor de Temario
   const [selectedCourseForCurriculum, setSelectedCourseForCurriculum] =
+    useState<ManagedCourse | null>(null);
+
+  // Control del Libro de Calificaciones (Gradebook)
+  const [selectedCourseForGradebook, setSelectedCourseForGradebook] =
     useState<ManagedCourse | null>(null);
 
   // Control del Modal de Lista de Verificación para Publicar (V1.5)
@@ -182,6 +188,20 @@ export default function TeacherCoursesView({
         course={selectedCourseForCurriculum}
         onBack={() => {
           setSelectedCourseForCurriculum(null);
+          loadCourses();
+        }}
+        showToast={showToast}
+      />
+    );
+  }
+
+  if (selectedCourseForGradebook) {
+    return (
+      <TeacherGradebookView
+        courseId={selectedCourseForGradebook.id}
+        courseTitle={selectedCourseForGradebook.title}
+        onBack={() => {
+          setSelectedCourseForGradebook(null);
           loadCourses();
         }}
         showToast={showToast}
@@ -452,8 +472,8 @@ export default function TeacherCoursesView({
                   </div>
                 </div>
 
-                {/* BOTONES DE ACCIÓN: Temario / Editar / Publicar / Ver alumno */}
-                <div className="p-3 bg-[#F8F9FA] border-t border-[#E4E6EA] grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {/* BOTONES DE ACCIÓN: Temario / Notas / Editar / Publicar / Ver alumno */}
+                <div className="p-3 bg-[#F8F9FA] border-t border-[#E4E6EA] grid grid-cols-2 sm:grid-cols-5 gap-2">
                   {/* Botón 1: Temario */}
                   <button
                     onClick={() => setSelectedCourseForCurriculum(course)}
@@ -464,7 +484,17 @@ export default function TeacherCoursesView({
                     <span>Temario</span>
                   </button>
 
-                  {/* Botón 2: Editar */}
+                  {/* Botón 2: Calificaciones (Gradebook) */}
+                  <button
+                    onClick={() => setSelectedCourseForGradebook(course)}
+                    className="flex items-center justify-center gap-1 py-2 px-2 rounded-xl bg-white hover:bg-slate-100 text-[#F2412C] text-xs font-bold transition cursor-pointer border border-[#D1D5DB]"
+                    title="Libro de Calificaciones y revisión de actividades"
+                  >
+                    <Award className="w-3.5 h-3.5" />
+                    <span>Notas</span>
+                  </button>
+
+                  {/* Botón 3: Editar */}
                   <button
                     onClick={() => handleOpenEdit(course, 1)}
                     className="flex items-center justify-center gap-1 py-2 px-2 rounded-xl bg-white hover:bg-slate-100 text-[#2B2D33] text-xs font-bold transition cursor-pointer border border-[#D1D5DB]"
@@ -474,7 +504,7 @@ export default function TeacherCoursesView({
                     <span>Editar</span>
                   </button>
 
-                  {/* Botón 3: Publicar con Checklist (V1.5) o Cambiar a Borrador */}
+                  {/* Botón 4: Publicar con Checklist (V1.5) o Cambiar a Borrador */}
                   <button
                     onClick={() => handlePublishClick(course)}
                     disabled={isToggling}
@@ -499,10 +529,10 @@ export default function TeacherCoursesView({
                     )}
                   </button>
 
-                  {/* Botón 4: Ver como estudiante */}
+                  {/* Botón 5: Ver como estudiante */}
                   <button
                     onClick={() => onViewAsStudent(course.slug)}
-                    className="flex items-center justify-center gap-1 py-2 px-2 rounded-xl bg-white hover:bg-slate-100 text-[#555861] hover:text-[#2B2D33] border border-[#D1D5DB] text-xs font-bold transition cursor-pointer"
+                    className="flex items-center justify-center gap-1 py-2 px-2 rounded-xl bg-white hover:bg-slate-100 text-[#555861] hover:text-[#2B2D33] border border-[#D1D5DB] text-xs font-bold transition cursor-pointer col-span-2 sm:col-span-1"
                     title="Previsualizar como estudiante"
                   >
                     <Eye className="w-3.5 h-3.5" />

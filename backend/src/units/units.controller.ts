@@ -172,4 +172,49 @@ export class UnitsController {
   ) {
     return this.unitsService.submitQuizAttempt(quizId, body.answers || {}, user);
   }
+
+  // =========================================================================
+  // 5. LIBRO DE CALIFICACIONES (GRADEBOOK)
+  // =========================================================================
+
+  @Get('course/:courseId/gradebook')
+  async getCourseGradebook(
+    @Param('courseId', ParseIntPipe) courseId: number,
+    @CurrentUser() user: User,
+  ) {
+    return this.unitsService.getCourseGradebook(courseId, user);
+  }
+
+  @Get('activities/:activityId/submissions')
+  async getActivitySubmissions(
+    @Param('activityId', ParseIntPipe) activityId: number,
+    @CurrentUser() user: User,
+  ) {
+    return this.unitsService.getActivitySubmissions(activityId, user);
+  }
+
+  @Patch('submissions/:submissionId/grade')
+  async gradeSubmission(
+    @Param('submissionId', ParseIntPipe) submissionId: number,
+    @Body() body: { grade: number; feedback?: string },
+    @CurrentUser() user: User,
+  ) {
+    return this.unitsService.gradeActivitySubmission(submissionId, body, user);
+  }
+
+  @Get('course/:courseId/my-grades')
+  async getMyGrades(
+    @Param('courseId', ParseIntPipe) courseId: number,
+    @CurrentUser() user: User,
+  ) {
+    return this.unitsService.getMyGrades(courseId, user);
+  }
+
+  @Get('course/slug/:slug/my-grades')
+  async getMyGradesBySlug(
+    @Param('slug') slug: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.unitsService.getMyGradesBySlug(slug, user);
+  }
 }

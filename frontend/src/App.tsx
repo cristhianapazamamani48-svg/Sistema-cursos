@@ -35,6 +35,7 @@ import TeacherCoursesView from './TeacherCoursesView';
 import CertificateModal from './CertificateModal';
 import VerifyCertificateModal from './VerifyCertificateModal';
 import UnitClassroomView from './UnitClassroomView';
+import StudentGradesView from './StudentGradesView';
 import { api, setCsrfToken as setGlobalCsrfToken, setOnUnauthorized } from './api';
 
 interface User {
@@ -168,6 +169,7 @@ export default function App() {
   const [classroomData, setClassroomData] = useState<ClassroomData | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<ClassroomLesson | null>(null);
   const [expandedModules, setExpandedModules] = useState<number[]>([]);
+  const [classroomViewMode, setClassroomViewMode] = useState<'content' | 'grades'>('content');
   const [pendingOrders, setPendingOrders] = useState<any[]>([]);
   const [teacherSubTab, setTeacherSubTab] = useState<'teaching' | 'enrolled'>('teaching');
 
@@ -412,6 +414,7 @@ export default function App() {
         const data: ClassroomData = await res.json();
         setClassroomData(data);
         setActiveTab('classroom');
+        setClassroomViewMode('content');
 
         // Expandir todos los módulos desbloqueados por defecto
         const unlockedModuleIds = data.modules.filter((m) => !m.isLocked).map((m) => m.id);
@@ -1620,8 +1623,47 @@ export default function App() {
               );
             })()}
 
-            {/* Layout Principal: Temario Izquierda + Reproductor Centro/Derecha */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Selector de Pestaña del Aula: Contenido vs Mis Calificaciones */}
+            <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-[#D1D5DB] w-fit shadow-xs">
+              <button
+                onClick={() => setClassroomViewMode('content')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  classroomViewMode === 'content'
+                    ? 'bg-[#F2412C] text-white shadow-xs'
+                    : 'text-[#555861] hover:text-[#2B2D33]'
+                }`}
+              >
+                <Layers className="w-4 h-4" />
+                <span>Temario y Contenido</span>
+              </button>
+              <button
+                onClick={() => setClassroomViewMode('grades')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  classroomViewMode === 'grades'
+                    ? 'bg-[#F2412C] text-white shadow-xs'
+                    : 'text-[#555861] hover:text-[#2B2D33]'
+                }`}
+              >
+                <Award className="w-4 h-4" />
+                <span>Mis Calificaciones</span>
+              </button>
+            </div>
+
+            {/* VISTA 1: BOLETÍN DE CALIFICACIONES DEL ESTUDIANTE */}
+            {classroomViewMode === 'grades' && (
+              <StudentGradesView
+                courseSlug={classroomData.course.slug}
+                onOpenCertificate={(enrollmentId) => {
+                  setSelectedCertificateEnrollmentId(enrollmentId);
+                  setIsCertificateModalOpen(true);
+                }}
+                showToast={showToast}
+              />
+            )}
+
+            {/* VISTA 2: TEMARIO Y REPRODUCTOR INTERACTIVO */}
+            {classroomViewMode === 'content' && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
               {/* Barra lateral de Temario, Progreso de Módulos y Candados */}
               <div className="lg:col-span-4 space-y-3">
                 <div className="bg-white border border-[#D1D5DB] rounded-3xl p-5 space-y-4 shadow-xs">
@@ -1864,6 +1906,7 @@ export default function App() {
                 )}
               </div>
             </div>
+            )}
           </div>
         )}
 
