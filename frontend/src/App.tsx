@@ -765,35 +765,37 @@ export default function App() {
             </p>
           </div>
 
-          {/* Accesos Rápidos para Demo */}
-          <div className="mb-6 p-3 bg-[#E4E6EA]/60 rounded-2xl border border-[#D1D5DB]">
-            <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#636870] mb-2 text-center">
-              Accesos Rápidos Demo
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('estudiante@demo.com', 'Estudiante2024!')}
-                className="py-2 px-2 bg-white hover:bg-[#E4E6EA] border border-[#D1D5DB] rounded-xl text-[11px] font-bold text-[#2B2D33] transition cursor-pointer text-center"
-              >
-                Estudiante
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('docente@demo.com', 'Docente2024!')}
-                className="py-2 px-2 bg-white hover:bg-[#E4E6EA] border border-[#D1D5DB] rounded-xl text-[11px] font-bold text-[#2B2D33] transition cursor-pointer text-center"
-              >
-                Docente
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('admin@demo.com', 'Admin2024!')}
-                className="py-2 px-2 bg-white hover:bg-[#E4E6EA] border border-[#D1D5DB] rounded-xl text-[11px] font-bold text-[#2B2D33] transition cursor-pointer text-center"
-              >
-                Admin
-              </button>
+          {/* Accesos Rápidos para Demo — solo en desarrollo */}
+          {import.meta.env.DEV && (
+            <div className="mb-6 p-3 bg-[#E4E6EA]/60 rounded-2xl border border-[#D1D5DB]">
+              <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#636870] mb-2 text-center">
+                Accesos Rápidos Demo
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('estudiante@demo.com', 'Estudiante2024!')}
+                  className="py-2 px-2 bg-white hover:bg-[#E4E6EA] border border-[#D1D5DB] rounded-xl text-[11px] font-bold text-[#2B2D33] transition cursor-pointer text-center"
+                >
+                  Estudiante
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('docente@demo.com', 'Docente2024!')}
+                  className="py-2 px-2 bg-white hover:bg-[#E4E6EA] border border-[#D1D5DB] rounded-xl text-[11px] font-bold text-[#2B2D33] transition cursor-pointer text-center"
+                >
+                  Docente
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('admin@demo.com', 'Admin2024!')}
+                  className="py-2 px-2 bg-white hover:bg-[#E4E6EA] border border-[#D1D5DB] rounded-xl text-[11px] font-bold text-[#2B2D33] transition cursor-pointer text-center"
+                >
+                  Admin
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Mensaje de error / éxito de Auth */}
           {authMsg && (
@@ -1877,38 +1879,40 @@ export default function App() {
               </p>
             </div>
 
-            {/* Accesos Rápidos de Demo */}
-            <div className="bg-[#1A1C20] p-4 rounded-2xl border border-[#363940] space-y-2">
-              <span className="text-[10px] font-extrabold uppercase text-[#555861] tracking-wider flex items-center gap-1">
-                <UserCheck className="w-3 h-3 text-[#F2412C]" /> Cuentas de Demostración
-              </span>
-              <div className="grid grid-cols-3 gap-2 text-xs">
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('estudiante@demo.com', 'Estudiante2024!')}
-                  className="bg-[#2B2D33] hover:bg-[#363940] text-slate-200 p-2 rounded-xl border border-[#363940] text-left transition"
-                >
-                  <strong className="block text-[#F2412C]">Estudiante</strong>
-                  <span className="text-[10px] text-[#555861] truncate block">estudiante@demo.com</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('docente@demo.com', 'Docente2024!')}
-                  className="bg-[#2B2D33] hover:bg-[#363940] text-slate-200 p-2 rounded-xl border border-[#363940] text-left transition"
-                >
-                  <strong className="block text-blue-400">Docente</strong>
-                  <span className="text-[10px] text-[#555861] truncate block">docente@demo.com</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('admin@demo.com', 'Admin2024!')}
-                  className="bg-[#2B2D33] hover:bg-[#363940] text-slate-200 p-2 rounded-xl border border-[#363940] text-left transition"
-                >
-                  <strong className="block text-purple-400">Admin</strong>
-                  <span className="text-[10px] text-[#555861] truncate block">admin@demo.com</span>
-                </button>
+            {/* Accesos Rápidos de Demo — solo en desarrollo */}
+            {import.meta.env.DEV && (
+              <div className="bg-[#1A1C20] p-4 rounded-2xl border border-[#363940] space-y-2">
+                <span className="text-[10px] font-extrabold uppercase text-[#555861] tracking-wider flex items-center gap-1">
+                  <UserCheck className="w-3 h-3 text-[#F2412C]" /> Cuentas de Demostración
+                </span>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => handleQuickLogin('estudiante@demo.com', 'Estudiante2024!')}
+                    className="bg-[#2B2D33] hover:bg-[#363940] text-slate-200 p-2 rounded-xl border border-[#363940] text-left transition"
+                  >
+                    <strong className="block text-[#F2412C]">Estudiante</strong>
+                    <span className="text-[10px] text-[#555861] truncate block">estudiante@demo.com</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickLogin('docente@demo.com', 'Docente2024!')}
+                    className="bg-[#2B2D33] hover:bg-[#363940] text-slate-200 p-2 rounded-xl border border-[#363940] text-left transition"
+                  >
+                    <strong className="block text-blue-400">Docente</strong>
+                    <span className="text-[10px] text-[#555861] truncate block">docente@demo.com</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickLogin('admin@demo.com', 'Admin2024!')}
+                    className="bg-[#2B2D33] hover:bg-[#363940] text-slate-200 p-2 rounded-xl border border-[#363940] text-left transition"
+                  >
+                    <strong className="block text-purple-400">Admin</strong>
+                    <span className="text-[10px] text-[#555861] truncate block">admin@demo.com</span>
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
             {authMsg && (
               <div
