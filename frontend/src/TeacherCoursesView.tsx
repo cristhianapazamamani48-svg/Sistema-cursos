@@ -209,6 +209,27 @@ export default function TeacherCoursesView({
     );
   }
 
+  // Vista Integrada a Pantalla Completa: Creación o Edición de Curso
+  if (isWizardOpen) {
+    return (
+      <CourseFormWizard
+        isOpen={true}
+        onClose={() => {
+          setIsWizardOpen(false);
+          setWizardCourse(null);
+        }}
+        initialCourse={wizardCourse}
+        initialStep={wizardStep}
+        onSuccess={() => {
+          setIsWizardOpen(false);
+          setWizardCourse(null);
+          loadCourses();
+        }}
+        showToast={showToast}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fade-in text-[#2B2D33]">
       {/* Cabecera Principal */}
@@ -544,19 +565,6 @@ export default function TeacherCoursesView({
           })}
         </div>
       )}
-
-      {/* MODAL REUTILIZABLE FORMULARIO EN 3 PASOS (NUEVO / EDITAR) */}
-      <CourseFormWizard
-        isOpen={isWizardOpen}
-        onClose={() => {
-          setIsWizardOpen(false);
-          setWizardCourse(null);
-        }}
-        initialCourse={wizardCourse}
-        initialStep={wizardStep}
-        onSuccess={loadCourses}
-        showToast={showToast}
-      />
 
       {/* MODAL DE LISTA DE VERIFICACIÓN PARA PUBLICAR CURSO (V1.5) */}
       <PublishChecklistModal
