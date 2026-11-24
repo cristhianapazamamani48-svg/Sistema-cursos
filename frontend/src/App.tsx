@@ -39,6 +39,7 @@ import StudentGradesView from './StudentGradesView';
 import StudentCertificatesView from './StudentCertificatesView';
 import UserProfileView from './UserProfileView';
 import DashboardHomeView from './DashboardHomeView';
+import CourseCatalogView from './CourseCatalogView';
 import { api, setCsrfToken as setGlobalCsrfToken, setOnUnauthorized } from './api';
 
 interface User {
@@ -1033,241 +1034,26 @@ export default function App() {
 
       {/* CONTENIDO PRINCIPAL POR VISTA */}
       <main className="flex-1 p-4 sm:p-8 max-w-7xl w-full mx-auto">
-        {/* VISTA 1: CATÁLOGO DE CURSOS (V2.1 - Visitante / Estudiante) */}
+        {/* VISTA 1: CATÁLOGO DE CURSOS (ATRACTIVO V3.0) */}
         {activeTab === 'catalog' && (!currentUser || currentUser.role === 'estudiante' || currentUser.role === 'student') && (
-          <div className="space-y-8 animate-fade-in">
-            {/* Encabezado con Propuesta de Valor y Buscador Integrado */}
-            <div className="relative rounded-3xl bg-[#2B2D33] border border-[#363940] p-6 sm:p-10 shadow-sm text-white space-y-6">
-              <div className="max-w-3xl space-y-3">
-                <span className="inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider bg-[#F2412C] text-white px-3 py-1 rounded-full shadow-xs">
-                  <Sparkles className="w-3.5 h-3.5" /> Capacitación & Certificación Profesional
-                </span>
-                <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight leading-tight">
-                  Aprende a tu ritmo con verificación de progreso real
-                </h1>
-                <p className="text-xs sm:text-sm text-[#E4E6EA]/80 leading-relaxed max-w-2xl">
-                  Cursos interactivos con validación de lecciones segundo a segundo, docentes especializados y certificación avalada para tu crecimiento profesional.
-                </p>
-              </div>
-
-              {/* Buscador Integrado en el Encabezado */}
-              <div className="relative max-w-2xl">
-                <div className="relative flex items-center">
-                  <Search className="w-5 h-5 text-[#9EA3AC] absolute left-4 pointer-events-none" />
-                  <input
-                    type="text"
-                    value={catalogSearch}
-                    onChange={(e) => setCatalogSearch(e.target.value)}
-                    placeholder="Buscar cursos por título, temática, descripción o docente..."
-                    className="w-full bg-white text-[#2B2D33] placeholder-slate-400 font-medium text-xs sm:text-sm rounded-2xl pl-12 pr-10 py-3.5 border border-white/20 focus:outline-none focus:ring-2 focus:ring-[#F2412C] shadow-lg transition"
-                  />
-                  {catalogSearch && (
-                    <button
-                      onClick={() => {
-                        setCatalogSearch('');
-                        loadCatalog('', catalogPriceFilter);
-                      }}
-                      className="absolute right-3.5 p-1 rounded-lg text-slate-400 hover:text-[#2B2D33] transition cursor-pointer"
-                      title="Limpiar búsqueda"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Barra de Filtros y Resumen de Cursos */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-xl sm:text-2xl font-black text-[#2B2D33]">Cursos Disponibles</h2>
-                <p className="text-xs text-[#555861] mt-0.5">
-                  {catalog.length === 1
-                    ? '1 curso disponible'
-                    : `${catalog.length} cursos disponibles`}
-                  {catalogSearch ? ` para "${catalogSearch}"` : ''}
-                  {isCatalogLoading ? ' (actualizando...)' : ''}
-                </p>
-              </div>
-
-              {/* Filtro Gratis / De Pago / Todos */}
-              <div className="inline-flex items-center gap-1.5 bg-white p-1.5 rounded-2xl border border-[#D1D5DB] shadow-xs self-start sm:self-auto">
-                <span className="text-[11px] font-bold text-[#555861] px-2 hidden sm:inline">Precio:</span>
-                {(
-                  [
-                    { id: 'all', label: 'Todos' },
-                    { id: 'free', label: 'Gratis' },
-                    { id: 'paid', label: 'De Pago' },
-                  ] as const
-                ).map((flt) => {
-                  const isActive = catalogPriceFilter === flt.id;
-                  return (
-                    <button
-                      key={flt.id}
-                      onClick={() => {
-                        setCatalogPriceFilter(flt.id);
-                        loadCatalog(catalogSearch, flt.id);
-                      }}
-                      className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                        isActive
-                          ? 'bg-[#2B2D33] text-white shadow-xs'
-                          : 'text-[#555861] hover:text-[#2B2D33] hover:bg-slate-100'
-                      }`}
-                    >
-                      {flt.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Estado Vacío o Grilla de Cursos */}
-            {catalog.length === 0 ? (
-              <div className="bg-white border border-[#D1D5DB] rounded-3xl p-12 text-center max-w-xl mx-auto space-y-4 shadow-xs">
-                <div className="w-16 h-16 rounded-2xl bg-[#E4E6EA] text-[#555861] flex items-center justify-center mx-auto">
-                  <SearchX className="w-8 h-8" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-lg font-bold text-[#2B2D33]">
-                    No se encontraron cursos
-                  </h3>
-                  <p className="text-xs text-[#555861] max-w-sm mx-auto leading-relaxed">
-                    {catalogSearch || catalogPriceFilter !== 'all'
-                      ? 'No hay resultados que coincidan con tus criterios de búsqueda o filtro de precio.'
-                      : 'Actualmente no hay cursos publicados en el catálogo.'}
-                  </p>
-                </div>
-                {(catalogSearch || catalogPriceFilter !== 'all') && (
-                  <button
-                    onClick={() => {
-                      setCatalogSearch('');
-                      setCatalogPriceFilter('all');
-                      loadCatalog('', 'all');
-                    }}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#2B2D33] hover:bg-[#3B3E46] text-white text-xs font-bold transition cursor-pointer"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Restablecer Filtros</span>
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {catalog.map((c) => {
-                  const isEnrolled = myCourses.some((mc) => mc.courseId === c.id);
-                  const isFree = Number(c.price) === 0;
-
-                  return (
-                    <div
-                      key={c.id}
-                      className="group bg-white border border-[#D1D5DB] hover:border-[#2B2D33]/40 rounded-3xl overflow-hidden shadow-xs hover:shadow-md transition flex flex-col justify-between"
-                    >
-                      <div>
-                        {/* Portada / Thumbnail */}
-                        <div className="relative h-48 w-full bg-[#2B2D33] overflow-hidden">
-                          {c.thumbnailUrl ? (
-                            <img
-                              src={c.thumbnailUrl}
-                              alt={c.title}
-                              className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                              onError={(e) => {
-                                (e.target as HTMLElement).style.display = 'none';
-                              }}
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-[#2B2D33] flex flex-col items-center justify-center p-6 text-center">
-                              <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-white mb-2">
-                                <BookOpen className="w-6 h-6" />
-                              </div>
-                              <span className="text-xs font-bold text-[#E4E6EA] line-clamp-1 max-w-[200px]">
-                                {c.slug}
-                              </span>
-                            </div>
-                          )}
-
-                          {/* Badges superiores: Asistencia mínima y Precio / Gratis */}
-                          <div className="absolute top-3 left-3">
-                            <span className="text-[11px] font-bold bg-[#2B2D33]/90 text-[#E4E6EA] px-2.5 py-1 rounded-lg border border-white/20 shadow-xs">
-                              Min. {c.minWatchPercentage}%
-                            </span>
-                          </div>
-
-                          <div className="absolute top-3 right-3">
-                            <span
-                              className={`text-xs font-black px-3 py-1 rounded-xl shadow-md ${
-                                isFree
-                                  ? 'bg-emerald-600 text-white'
-                                  : 'bg-[#F2412C] text-white'
-                              }`}
-                            >
-                              {isFree ? 'Gratis' : `${c.price} ${c.currency}`}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Info del curso: Docente, Lecciones, Título, Descripción */}
-                        <div className="p-6 space-y-3">
-                          {/* Metadatos: Docente y Nº de Lecciones */}
-                          <div className="flex items-center justify-between text-[11px] text-[#555861] pb-2 border-b border-[#E4E6EA]">
-                            <div
-                              className="flex items-center gap-1.5 truncate max-w-[60%]"
-                              title={c.teacherName || 'Docente Certificado'}
-                            >
-                              <UserIcon className="w-3.5 h-3.5 text-[#2B2D33] shrink-0" />
-                              <span className="font-semibold truncate">
-                                {c.teacherName || 'Docente Certificado'}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1 shrink-0 font-bold text-[#2B2D33]">
-                              <PlayCircle className="w-3.5 h-3.5 text-[#F2412C]" />
-                              <span>{c.lessonsCount ?? 0} {c.lessonsCount === 1 ? 'lección' : 'lecciones'}</span>
-                            </div>
-                          </div>
-
-                          <div className="space-y-1.5">
-                            <h3 className="text-lg font-bold text-[#2B2D33] group-hover:text-[#F2412C] transition line-clamp-2">
-                              {c.title}
-                            </h3>
-                            <p className="text-xs text-[#555861] line-clamp-2 leading-relaxed">
-                              {c.description || 'Domina los conceptos prácticos con este curso integral.'}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Botones de Acción al pie de la tarjeta */}
-                      <div className="p-6 pt-0">
-                        <div className="pt-4 border-t border-[#E4E6EA] flex items-center gap-3">
-                          <button
-                            onClick={() => loadCourseDetail(c.slug)}
-                            className="flex-1 bg-white hover:bg-slate-50 text-[#2B2D33] border border-[#D1D5DB] text-xs font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer"
-                          >
-                            Ver Temario
-                          </button>
-
-                          {isEnrolled ? (
-                            <button
-                              onClick={() => enterClassroom(c.slug)}
-                              className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-sm cursor-pointer"
-                            >
-                              <Play className="w-3.5 h-3.5" /> Entrar al Aula
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleEnrollOrBuy(c.id, c.price)}
-                              className="flex-1 bg-[#F2412C] hover:bg-[#D93522] text-white text-xs font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-sm shadow-[#F2412C]/20 cursor-pointer"
-                            >
-                              {isFree ? 'Inscribirme Gratis' : 'Comprar Curso'}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          <CourseCatalogView
+            courses={catalog}
+            myCourses={myCourses}
+            isLoading={isCatalogLoading}
+            searchTerm={catalogSearch}
+            priceFilter={catalogPriceFilter}
+            onSearchChange={(term) => {
+              setCatalogSearch(term);
+              loadCatalog(term, catalogPriceFilter);
+            }}
+            onPriceFilterChange={(flt) => {
+              setCatalogPriceFilter(flt);
+              loadCatalog(catalogSearch, flt);
+            }}
+            onViewDetails={(slug) => loadCourseDetail(slug)}
+            onEnterClassroom={(slug) => enterClassroom(slug)}
+            onEnrollOrBuy={(courseId, price) => handleEnrollOrBuy(courseId, price)}
+          />
         )}
 
         {/* VISTA 2: DETALLE DEL CURSO Y TEMARIO */}
